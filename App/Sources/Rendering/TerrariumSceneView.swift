@@ -36,6 +36,10 @@ struct TerrariumSceneView: View {
                     layout: layout,
                     hydration: hydration
                 ))
+                root.addChild(TerrariumEntityFactory.makeGlassDroplets(
+                    layout.droplets,
+                    hydrated: hydration >= 40
+                ))
                 content.add(root)
                 for light in TerrariumEntityFactory.makeLights(period: period) {
                     content.add(light)
@@ -50,6 +54,11 @@ struct TerrariumSceneView: View {
 
             if hydration >= 40 && (period == .evening || period == .night) {
                 WaterGlintsView(droplets: layout.droplets, reduceMotion: reduceMotion)
+                    .allowsHitTesting(false)
+            }
+
+            if period == .evening || period == .night {
+                RomanticMotesView(reduceMotion: reduceMotion)
                     .allowsHitTesting(false)
             }
         }
@@ -69,6 +78,11 @@ struct TerrariumSceneView: View {
 
 @MainActor
 private enum TerrariumEntityFactory {
+    private struct VertexBuffers {
+        var positions: [SIMD3<Float>] = []
+        var normals: [SIMD3<Float>] = []
+    }
+
     static func makeLights(period: DayPeriod) -> [Entity] {
         let keyLight = DirectionalLight()
         let warmIntensity: Float = period == .night || period == .evening ? 5_600 : 4_100
@@ -89,21 +103,21 @@ private enum TerrariumEntityFactory {
             attenuationRadius: 9
         )
         fillLight.position = SIMD3<Float>(-2.5, 1.8, -2.0)
-        return [keyLight, fillLight]
+
+        let lanternLight = PointLight()
+        lanternLight.light = PointLightComponent(
+            cgColor: UIColor(red: 1, green: 0.62, blue: 0.20, alpha: 1).cgColor,
+            intensity: period == .night || period == .evening ? 4_800 : 1_900,
+            attenuationRadius: 3.4
+        )
+        lanternLight.position = SIMD3<Float>(0.72, 0.65, -2.05)
+        return [keyLight, fillLight, lanternLight]
     }
 
     static func makeHardware() -> Entity {
         let root = Entity()
-        let darkMetal = SimpleMaterial(
-            color: UIColor(red: 0.07, green: 0.065, blue: 0.045, alpha: 1),
-            roughness: 0.34,
-            isMetallic: true
-        )
-        let bronze = SimpleMaterial(
-            color: UIColor(red: 0.24, green: 0.16, blue: 0.055, alpha: 1),
-            roughness: 0.28,
-            isMetallic: true
-        )
+        let darkMetal = TerrariumMaterialFactory.darkMetal()
+        let bronze = TerrariumMaterialFactory.bronze()
 
         let base = ModelEntity(
             mesh: .generateCylinder(height: 0.38, radius: 1.48),
@@ -136,14 +150,38 @@ private enum TerrariumEntityFactory {
     static func makeGlassCloche() -> Entity {
         let root = Entity()
         root.name = "RealityKitGlassBowl"
-        var glass = UnlitMaterial(color: UIColor(red: 0.66, green: 0.91, blue: 0.94, alpha: 1))
-        glass.blending = .transparent(opacity: 0.075)
+        let glass = TerrariumMaterialFactory.glass()
 
         let cloche = ModelEntity(
             mesh: makeClocheMesh(radius: 1.34, wallBottom: -0.90, wallTop: 1.84, domeHeight: 0.78),
             materials: [glass]
         )
         root.addChild(cloche)
+        return root
+    }
+
+    static func makeGlassDroplets(
+        _ droplets: [TerrariumLayout.Droplet],
+        hydrated: Bool
+    ) -> Entity {
+        let root = Entity()
+        root.name = "GlassDroplets"
+        guard hydrated else { return root }
+
+        for (index, droplet) in droplets.prefix(18).enumerated() {
+            let radius = max(0.018, droplet.size * 0.72)
+            let entity = ModelEntity(
+                mesh: .generateSphere(radius: radius),
+                materials: [TerrariumMaterialFactory.droplet(glint: droplet.glint)]
+            )
+            entity.scale = SIMD3<Float>(0.72, 1.34 + Float(index % 3) * 0.08, 0.26)
+            entity.position = SIMD3<Float>(
+                droplet.xRatio * 1.10,
+                -0.42 + droplet.yRatio * 2.45,
+                1.285 - abs(droplet.xRatio) * 0.22
+            )
+            root.addChild(entity)
+        }
         return root
     }
 
@@ -155,17 +193,30 @@ private enum TerrariumEntityFactory {
     ) -> MeshResource {
         let segments = 48
         let domeRings = 12
-        var positions: [SIMD3<Float>] = []
+        var buffers = VertexBuffers()
         var indices: [UInt32] = []
-        appendRing(radius: radius, yPosition: wallBottom, segments: segments, to: &positions)
-        appendRing(radius: radius, yPosition: wallTop, segments: segments, to: &positions)
+        appendRing(
+            radius: radius,
+            yPosition: wallBottom,
+            segments: segments,
+            normal: SIMD2<Float>(1, 0),
+            buffers: &buffers
+        )
+        appendRing(
+            radius: radius,
+            yPosition: wallTop,
+            segments: segments,
+            normal: SIMD2<Float>(1, 0),
+            buffers: &buffers
+        )
         for ring in 1...domeRings {
             let latitude = .pi / 2 * (1 - Float(ring) / Float(domeRings))
             appendRing(
                 radius: sin(latitude) * radius,
                 yPosition: wallTop + cos(latitude) * domeHeight,
                 segments: segments,
-                to: &positions
+                normal: SIMD2<Float>(sin(latitude), cos(latitude)),
+                buffers: &buffers
             )
         }
         for ring in 0..<(domeRings + 1) {
@@ -178,28 +229,41 @@ private enum TerrariumEntityFactory {
                 indices += [lower, upper, lowerNext, lowerNext, upper, upperNext]
             }
         }
-        return makeMesh(name: "GlassCloche", positions: positions, indices: indices)
+        return makeMesh(
+            name: "GlassCloche",
+            positions: buffers.positions,
+            normals: buffers.normals,
+            indices: indices
+        )
     }
 
     private static func appendRing(
         radius: Float,
         yPosition: Float,
         segments: Int,
-        to positions: inout [SIMD3<Float>]
+        normal: SIMD2<Float>,
+        buffers: inout VertexBuffers
     ) {
         for segment in 0..<segments {
             let angle = Float(segment) / Float(segments) * .pi * 2
-            positions.append(SIMD3<Float>(cos(angle) * radius, yPosition, sin(angle) * radius))
+            buffers.positions.append(SIMD3<Float>(cos(angle) * radius, yPosition, sin(angle) * radius))
+            buffers.normals.append(simd_normalize(SIMD3<Float>(
+                cos(angle) * normal.x,
+                normal.y,
+                sin(angle) * normal.x
+            )))
         }
     }
 
     private static func makeMesh(
         name: String,
         positions: [SIMD3<Float>],
+        normals: [SIMD3<Float>],
         indices: [UInt32]
     ) -> MeshResource {
         var descriptor = MeshDescriptor(name: name)
         descriptor.positions = MeshBuffer(positions)
+        descriptor.normals = MeshBuffer(normals)
         descriptor.primitives = .triangles(indices)
         do {
             return try MeshResource.generate(from: [descriptor])
@@ -214,11 +278,7 @@ private extension TerrariumEntityFactory {
     static func makeContents(layout: TerrariumLayout, hydration: Int) -> Entity {
         let root = Entity()
         let hydrated = hydration >= 40
-        let soilMaterial = SimpleMaterial(
-            color: UIColor(red: hydrated ? 0.12 : 0.20, green: 0.075, blue: 0.035, alpha: 1),
-            roughness: 0.92,
-            isMetallic: false
-        )
+        let soilMaterial = TerrariumMaterialFactory.soil(hydrated: hydrated)
         let soil = ModelEntity(
             mesh: .generateCylinder(height: 0.46, radius: 1.24),
             materials: [soilMaterial]
@@ -228,17 +288,13 @@ private extension TerrariumEntityFactory {
 
         let carpet = ModelEntity(
             mesh: .generateCylinder(height: 0.045, radius: 1.18),
-            materials: [SimpleMaterial(
-                color: UIColor(red: 0.07, green: hydrated ? 0.25 : 0.20, blue: 0.045, alpha: 1),
-                roughness: 0.98,
-                isMetallic: false
-            )]
+            materials: [TerrariumMaterialFactory.moss(tone: hydrated ? 1 : 0, hydrated: hydrated)]
         )
         carpet.position.y = -0.66
         root.addChild(carpet)
 
         addMoss(layout.mossMounds, hydrated: hydrated, to: root)
-        addStones(layout.stones, to: root)
+        addStones(layout.stones, hydrated: hydrated, to: root)
         addBranch(rotation: layout.branchRotation, to: root)
         addFern(layout.fernFronds, hydrated: hydrated, to: root)
         if layout.growthProgress >= 1 {
@@ -252,65 +308,55 @@ private extension TerrariumEntityFactory {
         hydrated: Bool,
         to root: Entity
     ) {
-        let colors: [UIColor] = hydrated
-            ? [
-                .init(red: 0.045, green: 0.27, blue: 0.055, alpha: 1),
-                .init(red: 0.09, green: 0.42, blue: 0.075, alpha: 1),
-                .init(red: 0.24, green: 0.55, blue: 0.09, alpha: 1)
-            ]
-            : [
-                .init(red: 0.18, green: 0.24, blue: 0.07, alpha: 1),
-                .init(red: 0.28, green: 0.31, blue: 0.08, alpha: 1),
-                .init(red: 0.38, green: 0.36, blue: 0.10, alpha: 1)
-            ]
-
         for (index, mound) in mounds.enumerated() {
-            let material = SimpleMaterial(color: colors[mound.tone], roughness: 0.96, isMetallic: false)
-            let entity = ModelEntity(mesh: .generateSphere(radius: mound.radius), materials: [material])
-            entity.scale = SIMD3<Float>(1, mound.height / mound.radius, 0.88)
-            entity.position = SIMD3<Float>(mound.xPosition, -0.68 + mound.height * 0.46, mound.zPosition)
+            let material = TerrariumMaterialFactory.moss(tone: 0, hydrated: hydrated)
+            let entity = ModelEntity(mesh: OrganicMeshFactory.moss(variant: index), materials: [material])
+            entity.scale = SIMD3<Float>(mound.radius, mound.height * 0.60, mound.radius * 0.88)
+            entity.position = SIMD3<Float>(mound.xPosition, -0.68 + mound.height * 0.27, mound.zPosition)
             entity.orientation = simd_quatf(angle: mound.rotation, axis: SIMD3<Float>(0, 1, 0))
             root.addChild(entity)
 
-            addMossTexture(mound: mound, material: material, index: index, to: root)
+            addMossTexture(mound: mound, hydrated: hydrated, index: index, to: root)
         }
     }
 
     private static func addMossTexture(
         mound: TerrariumLayout.MossMound,
-        material: SimpleMaterial,
+        hydrated: Bool,
         index: Int,
         to root: Entity
     ) {
-        for tuftIndex in 0..<2 {
-            let angle = mound.rotation + Float(tuftIndex) * 2.1 + Float(index % 3) * 0.35
+        for tuftIndex in 0..<4 {
+            let angle = mound.rotation + Float(tuftIndex) * 2.399 + Float(index % 3) * 0.35
+            let spread = mound.radius * (0.10 + Float((tuftIndex + index) % 4) * 0.075)
+            let size = mound.radius * (0.23 + Float((index + tuftIndex) % 3) * 0.035)
             let tuft = ModelEntity(
-                mesh: .generateBox(
-                    size: SIMD3<Float>(mound.radius * 0.30, 0.045, mound.radius * 0.25),
-                    cornerRadius: 0.008
-                ),
-                materials: [material]
+                mesh: OrganicMeshFactory.moss(variant: index + tuftIndex + 1),
+                materials: [TerrariumMaterialFactory.moss(
+                    tone: (mound.tone + tuftIndex) % 3,
+                    hydrated: hydrated
+                )]
             )
+            tuft.scale = SIMD3<Float>(size, size * 0.62, size * 0.82)
             tuft.position = SIMD3<Float>(
-                mound.xPosition + cos(angle) * mound.radius * 0.35,
-                -0.67 + mound.height * (0.82 + Float(tuftIndex) * 0.08),
-                mound.zPosition + sin(angle) * mound.radius * 0.30
+                mound.xPosition + cos(angle) * spread,
+                -0.66 + mound.height * (0.78 + Float(tuftIndex % 3) * 0.055),
+                mound.zPosition + sin(angle) * spread * 0.88
             )
             tuft.orientation = simd_quatf(angle: angle, axis: SIMD3<Float>(0, 1, 0))
             root.addChild(tuft)
         }
     }
 
-    private static func addStones(_ stones: [TerrariumLayout.Stone], to root: Entity) {
-        let colors = [
-            UIColor(red: 0.35, green: 0.35, blue: 0.29, alpha: 1),
-            UIColor(red: 0.25, green: 0.29, blue: 0.27, alpha: 1),
-            UIColor(red: 0.42, green: 0.39, blue: 0.31, alpha: 1)
-        ]
-        for stone in stones {
-            let material = SimpleMaterial(color: colors[stone.tone], roughness: 0.72, isMetallic: false)
-            let entity = ModelEntity(mesh: .generateSphere(radius: stone.radius), materials: [material])
-            entity.scale = SIMD3<Float>(1, stone.height / stone.radius, 0.82)
+    private static func addStones(
+        _ stones: [TerrariumLayout.Stone],
+        hydrated: Bool,
+        to root: Entity
+    ) {
+        for (index, stone) in stones.enumerated() {
+            let material = TerrariumMaterialFactory.stone(tone: stone.tone, hydrated: hydrated)
+            let entity = ModelEntity(mesh: OrganicMeshFactory.stone(variant: index), materials: [material])
+            entity.scale = SIMD3<Float>(stone.radius, stone.height, stone.radius * 0.82)
             entity.position = SIMD3<Float>(stone.xPosition, -0.62 + stone.height * 0.45, stone.zPosition)
             entity.orientation = simd_quatf(angle: stone.rotation, axis: SIMD3<Float>(0, 1, 0))
             root.addChild(entity)
@@ -318,11 +364,7 @@ private extension TerrariumEntityFactory {
     }
 
     private static func addBranch(rotation: Float, to root: Entity) {
-        let bark = SimpleMaterial(
-            color: UIColor(red: 0.29, green: 0.14, blue: 0.045, alpha: 1),
-            roughness: 0.9,
-            isMetallic: false
-        )
+        let bark = TerrariumMaterialFactory.bark()
         for index in 0..<4 {
             let segment = ModelEntity(
                 mesh: .generateBox(size: SIMD3<Float>(0.34, 0.075, 0.09), cornerRadius: 0.018),
@@ -339,16 +381,12 @@ private extension TerrariumEntityFactory {
         hydrated: Bool,
         to root: Entity
     ) {
-        let stem = SimpleMaterial(
-            color: UIColor(red: 0.17, green: hydrated ? 0.48 : 0.34, blue: 0.08, alpha: 1),
-            roughness: 0.9,
-            isMetallic: false
-        )
+        let stem = TerrariumMaterialFactory.stem(hydrated: hydrated)
         let leafColors = hydrated
             ? [
-                UIColor(red: 0.18, green: 0.54, blue: 0.08, alpha: 1),
-                UIColor(red: 0.31, green: 0.67, blue: 0.10, alpha: 1),
-                UIColor(red: 0.12, green: 0.42, blue: 0.06, alpha: 1)
+                UIColor(red: 0.10, green: 0.40, blue: 0.055, alpha: 1),
+                UIColor(red: 0.19, green: 0.52, blue: 0.075, alpha: 1),
+                UIColor(red: 0.075, green: 0.32, blue: 0.045, alpha: 1)
             ]
             : [
                 UIColor(red: 0.39, green: 0.40, blue: 0.10, alpha: 1),
@@ -357,7 +395,15 @@ private extension TerrariumEntityFactory {
             ]
 
         for frond in fronds {
-            addFrond(frond, stem: stem, leafColor: leafColors[frond.tone], to: root)
+            addFrond(
+                frond,
+                stem: stem,
+                leafMaterial: TerrariumMaterialFactory.leaf(
+                    color: leafColors[frond.tone],
+                    hydrated: hydrated
+                ),
+                to: root
+            )
         }
 
         if fronds.isEmpty {
@@ -372,13 +418,12 @@ private extension TerrariumEntityFactory {
 
     private static func addFrond(
         _ frond: TerrariumLayout.FernFrond,
-        stem: SimpleMaterial,
-        leafColor: UIColor,
+        stem: PhysicallyBasedMaterial,
+        leafMaterial: PhysicallyBasedMaterial,
         to root: Entity
     ) {
         let segmentCount = max(3, frond.leafletPairs)
         let direction = SIMD2<Float>(cos(frond.angle), sin(frond.angle))
-        let leafMaterial = SimpleMaterial(color: leafColor, roughness: 0.9, isMetallic: false)
         var previous = SIMD3<Float>(0, -0.58, 0)
 
         for level in 1...segmentCount {
@@ -407,7 +452,7 @@ private extension TerrariumEntityFactory {
         at point: SIMD3<Float>,
         angle: Float,
         length: Float,
-        material: SimpleMaterial,
+        material: PhysicallyBasedMaterial,
         to root: Entity
     ) {
         let direction = SIMD2<Float>(cos(angle), sin(angle))
@@ -430,7 +475,7 @@ private extension TerrariumEntityFactory {
         from start: SIMD3<Float>,
         to end: SIMD3<Float>,
         thickness: Float,
-        material: SimpleMaterial,
+        material: PhysicallyBasedMaterial,
         to root: Entity
     ) {
         let vector = end - start
@@ -443,7 +488,6 @@ private extension TerrariumEntityFactory {
         segment.orientation = simd_quatf(from: SIMD3<Float>(0, 1, 0), to: simd_normalize(vector))
         root.addChild(segment)
     }
-
     private static func addForestGlows(to root: Entity) {
         let material = UnlitMaterial(color: UIColor(red: 0.92, green: 1, blue: 0.43, alpha: 0.95))
         for index in 0..<9 {
@@ -452,36 +496,5 @@ private extension TerrariumEntityFactory {
             glow.position = SIMD3<Float>(cos(angle) * 0.76, -0.05 + Float(index % 3) * 0.19, sin(angle) * 0.48)
             root.addChild(glow)
         }
-    }
-}
-
-private struct WaterGlintsView: View {
-    let droplets: [TerrariumLayout.Droplet]
-    let reduceMotion: Bool
-    @State private var shimmering = false
-
-    var body: some View {
-        GeometryReader { geometry in
-            ForEach(Array(droplets.prefix(14).enumerated()), id: \.offset) { index, droplet in
-                Image(systemName: index.isMultiple(of: 4) ? "sparkle" : "drop.fill")
-                    .font(.system(size: 5 + CGFloat(droplet.size) * 130, weight: .medium))
-                    .foregroundStyle(.white.opacity(0.70 + Double(droplet.glint) * 0.24))
-                    .shadow(color: .cyan.opacity(0.72), radius: 4)
-                    .position(
-                        x: geometry.size.width * CGFloat(0.5 + droplet.xRatio * 0.31),
-                        y: geometry.size.height * CGFloat(0.14 + droplet.yRatio * 0.69)
-                    )
-                    .opacity(reduceMotion ? 0.65 : (shimmering == index.isMultiple(of: 2) ? 1 : 0.32))
-                    .animation(
-                        reduceMotion
-                            ? nil
-                            : .easeInOut(duration: 1.1 + Double(index % 5) * 0.17)
-                                .repeatForever(autoreverses: true),
-                        value: shimmering
-                    )
-            }
-        }
-        .onAppear { shimmering = true }
-        .accessibilityHidden(true)
     }
 }

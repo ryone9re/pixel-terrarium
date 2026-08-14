@@ -22,13 +22,16 @@ struct ProceduralTerrariumSnapshotView: View {
             drawStones(in: &context, geometry: geometry)
             drawFern(in: &context, geometry: geometry)
             drawDroplets(in: &context, geometry: geometry)
+            drawAtmosphere(in: &context, geometry: geometry)
             drawHardware(in: &context, geometry: geometry)
             drawGlassOutline(in: &context, geometry: geometry)
         }
         .aspectRatio(0.82, contentMode: .fit)
         .accessibilityHidden(true)
     }
+}
 
+private extension ProceduralTerrariumSnapshotView {
     private func drawGlassFill(in context: inout GraphicsContext, geometry: SnapshotGeometry) {
         context.fill(
             geometry.clochePath,
@@ -74,17 +77,45 @@ struct ProceduralTerrariumSnapshotView: View {
                 width: width,
                 height: height * 1.35
             )
-            context.fill(Path(ellipseIn: rect), with: .color(colors[mound.tone]))
-            if mound.tone == 2 {
-                let highlight = CGRect(
-                    x: rect.minX + rect.width * 0.24,
-                    y: rect.minY + rect.height * 0.18,
-                    width: max(1.5, rect.width * 0.16),
-                    height: max(1.5, rect.width * 0.12)
+            context.fill(
+                Path(ellipseIn: rect),
+                with: .radialGradient(
+                    Gradient(colors: [
+                        colors[mound.tone].opacity(1),
+                        colors[mound.tone].opacity(0.78),
+                        Color(red: 0.025, green: 0.09, blue: 0.025)
+                    ]),
+                    center: CGPoint(x: rect.minX + rect.width * 0.36, y: rect.minY + rect.height * 0.24),
+                    startRadius: 0,
+                    endRadius: max(rect.width, rect.height) * 0.68
                 )
-                context.fill(Path(ellipseIn: highlight), with: .color(.yellow.opacity(0.52)))
-            }
+            )
+            drawMossDetail(in: &context, rect: rect, tone: mound.tone, hydrated: hydrated)
         }
+    }
+
+    private func drawMossDetail(
+        in context: inout GraphicsContext,
+        rect: CGRect,
+        tone: Int,
+        hydrated: Bool
+    ) {
+        let mossGrain = CGRect(
+            x: rect.minX + rect.width * 0.18,
+            y: rect.minY + rect.height * 0.12,
+            width: max(1.2, rect.width * 0.10),
+            height: max(1.2, rect.width * 0.08)
+        )
+        context.fill(Path(ellipseIn: mossGrain), with: .color(.white.opacity(hydrated ? 0.30 : 0.12)))
+        guard tone == 2 else { return }
+
+        let highlight = CGRect(
+            x: rect.minX + rect.width * 0.24,
+            y: rect.minY + rect.height * 0.18,
+            width: max(1.5, rect.width * 0.16),
+            height: max(1.5, rect.width * 0.12)
+        )
+        context.fill(Path(ellipseIn: highlight), with: .color(.yellow.opacity(0.52)))
     }
 
     private func drawBranch(in context: inout GraphicsContext, geometry: SnapshotGeometry) {
@@ -95,6 +126,15 @@ struct ProceduralTerrariumSnapshotView: View {
             path,
             with: .color(Color(red: 0.36, green: 0.17, blue: 0.045)),
             style: StrokeStyle(lineWidth: max(2, geometry.size.width * 0.028), lineCap: .square)
+        )
+        context.stroke(
+            path,
+            with: .linearGradient(
+                Gradient(colors: [.orange.opacity(0.56), .clear]),
+                startPoint: geometry.project(xPosition: -0.54, zPosition: 0.18),
+                endPoint: geometry.project(xPosition: 0.44, zPosition: -0.04)
+            ),
+            style: StrokeStyle(lineWidth: max(0.6, geometry.size.width * 0.007), lineCap: .round)
         )
     }
 
@@ -113,7 +153,18 @@ struct ProceduralTerrariumSnapshotView: View {
                 width: diameter,
                 height: diameter * 0.78
             )
-            context.fill(Path(ellipseIn: rect), with: .color(colors[stone.tone]))
+            context.fill(
+                Path(ellipseIn: rect),
+                with: .linearGradient(
+                    Gradient(colors: [
+                        .white.opacity(snapshot.hydration >= 40 ? 0.66 : 0.36),
+                        colors[stone.tone],
+                        .black.opacity(0.72)
+                    ]),
+                    startPoint: CGPoint(x: rect.minX, y: rect.minY),
+                    endPoint: CGPoint(x: rect.maxX, y: rect.maxY)
+                )
+            )
         }
     }
 
@@ -177,7 +228,49 @@ struct ProceduralTerrariumSnapshotView: View {
                     width: diameter,
                     height: diameter * 1.55
                 )),
-                with: .color(.white.opacity(0.38 + Double(droplet.glint) * 0.45))
+                with: .linearGradient(
+                    Gradient(colors: [
+                        .white.opacity(0.72 + Double(droplet.glint) * 0.25),
+                        .cyan.opacity(0.24),
+                        .clear
+                    ]),
+                    startPoint: CGPoint(x: point.x - diameter / 2, y: point.y - diameter),
+                    endPoint: CGPoint(x: point.x + diameter / 2, y: point.y + diameter * 0.55)
+                )
+            )
+        }
+    }
+
+    private func drawAtmosphere(in context: inout GraphicsContext, geometry: SnapshotGeometry) {
+        let leftReflection = CGRect(
+            x: geometry.centerX - geometry.jarWidth * 0.39,
+            y: geometry.size.height * 0.23,
+            width: max(1.2, geometry.size.width * 0.014),
+            height: geometry.size.height * 0.36
+        )
+        context.fill(
+            Path(roundedRect: leftReflection, cornerRadius: leftReflection.width),
+            with: .linearGradient(
+                Gradient(colors: [.clear, .white.opacity(0.62), .cyan.opacity(0.16), .clear]),
+                startPoint: CGPoint(x: leftReflection.midX, y: leftReflection.minY),
+                endPoint: CGPoint(x: leftReflection.midX, y: leftReflection.maxY)
+            )
+        )
+
+        for index in 0..<7 {
+            let diameter = max(1.2, geometry.size.width * (index.isMultiple(of: 3) ? 0.015 : 0.009))
+            let point = CGPoint(
+                x: geometry.centerX + geometry.jarWidth * CGFloat((index * 17) % 13 - 6) / 18,
+                y: geometry.size.height * (0.25 + CGFloat((index * 11) % 9) / 23)
+            )
+            context.fill(
+                Path(ellipseIn: CGRect(
+                    x: point.x - diameter / 2,
+                    y: point.y - diameter / 2,
+                    width: diameter,
+                    height: diameter
+                )),
+                with: .color((index.isMultiple(of: 3) ? Color.cyan : Color.yellow).opacity(0.42))
             )
         }
     }
