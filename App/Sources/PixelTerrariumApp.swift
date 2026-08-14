@@ -1,28 +1,31 @@
+import SwiftData
 import SwiftUI
-import TerrariumCore
 
 @main
 struct PixelTerrariumApp: App {
-    var body: some Scene {
-        WindowGroup {
-            ContentView()
+    private let modelContainer: ModelContainer
+
+    init() {
+        if ProcessInfo.processInfo.arguments.contains("--ui-testing") {
+            UserDefaults.standard.removeObject(forKey: "debugTimeOffsetDays")
+        }
+        let schema = Schema([TerrariumRecord.self, WateringEventRecord.self])
+        let configuration = ModelConfiguration(
+            schema: schema,
+            isStoredInMemoryOnly: ProcessInfo.processInfo.arguments.contains("--ui-testing")
+        )
+        do {
+            modelContainer = try ModelContainer(for: schema, configurations: [configuration])
+        } catch {
+            fatalError("SwiftDataの初期化に失敗しました: \(error.localizedDescription)")
         }
     }
-}
 
-private struct ContentView: View {
-    var body: some View {
-        NavigationStack {
-            VStack(spacing: 20) {
-                Image(systemName: "tree.fill")
-                    .font(.system(size: 72))
-                    .foregroundStyle(.green)
-                Text("Pixel Terrarium")
-                    .font(.largeTitle.bold())
-                Text(TerrariumCore.isReady ? "準備ができました" : "準備中")
-                    .foregroundStyle(.secondary)
-            }
-            .padding()
+    var body: some Scene {
+        WindowGroup {
+            AppRootView()
+                .tint(.terrariumGreen)
         }
+        .modelContainer(modelContainer)
     }
 }

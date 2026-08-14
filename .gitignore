@@ -6,3 +6,4 @@ DerivedData/
 .tuist-cache/
 .build/
 xcresult/
+*.blend1
