@@ -1,0 +1,8 @@
+.DS_Store
+Derived/
+DerivedData/
+*.xcworkspace
+*.xcodeproj
+.tuist-cache/
+.build/
+xcresult/
