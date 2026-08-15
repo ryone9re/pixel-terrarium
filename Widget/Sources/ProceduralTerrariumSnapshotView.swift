@@ -44,13 +44,55 @@ private extension ProceduralTerrariumSnapshotView {
     }
 
     private func drawGround(in context: inout GraphicsContext, geometry: SnapshotGeometry) {
-        let rect = CGRect(
+        let drainage = CGRect(
             x: geometry.centerX - geometry.jarWidth * 0.43,
-            y: geometry.groundY - geometry.size.height * 0.045,
+            y: geometry.groundY + geometry.size.height * 0.015,
             width: geometry.jarWidth * 0.86,
-            height: geometry.size.height * 0.12
+            height: geometry.size.height * 0.075
         )
-        context.fill(Path(ellipseIn: rect), with: .color(Color(red: 0.16, green: 0.08, blue: 0.025)))
+        context.fill(Path(ellipseIn: drainage), with: .color(Color(red: 0.16, green: 0.15, blue: 0.12)))
+
+        let charcoal = drainage.offsetBy(dx: 0, dy: -geometry.size.height * 0.028)
+        context.fill(Path(ellipseIn: charcoal), with: .color(Color(red: 0.035, green: 0.04, blue: 0.03)))
+
+        var soil = Path()
+        let groundLeft = CGPoint(
+            x: geometry.centerX - geometry.jarWidth * 0.43,
+            y: geometry.groundY + geometry.size.height * 0.025
+        )
+        let groundRight = CGPoint(
+            x: geometry.centerX + geometry.jarWidth * 0.43,
+            y: geometry.groundY + geometry.size.height * 0.025
+        )
+        soil.move(to: groundLeft)
+        soil.addCurve(
+            to: groundRight,
+            control1: CGPoint(
+                x: geometry.centerX - geometry.jarWidth * 0.22,
+                y: geometry.groundY - geometry.size.height * 0.15
+            ),
+            control2: CGPoint(
+                x: geometry.centerX + geometry.jarWidth * 0.12,
+                y: geometry.groundY - geometry.size.height * 0.11
+            )
+        )
+        soil.addLine(to: CGPoint(
+            x: geometry.centerX + geometry.jarWidth * 0.40,
+            y: geometry.groundY + geometry.size.height * 0.065
+        ))
+        soil.addLine(to: CGPoint(
+            x: geometry.centerX - geometry.jarWidth * 0.40,
+            y: geometry.groundY + geometry.size.height * 0.065
+        ))
+        soil.closeSubpath()
+        context.fill(soil, with: .linearGradient(
+            Gradient(colors: [
+                Color(red: 0.20, green: 0.12, blue: 0.055),
+                Color(red: 0.07, green: 0.04, blue: 0.02)
+            ]),
+            startPoint: CGPoint(x: geometry.centerX, y: geometry.groundY - geometry.size.height * 0.14),
+            endPoint: CGPoint(x: geometry.centerX, y: geometry.groundY + geometry.size.height * 0.06)
+        ))
     }
 
     private func drawMoss(in context: inout GraphicsContext, geometry: SnapshotGeometry) {
@@ -100,13 +142,19 @@ private extension ProceduralTerrariumSnapshotView {
         tone: Int,
         hydrated: Bool
     ) {
-        let mossGrain = CGRect(
-            x: rect.minX + rect.width * 0.18,
-            y: rect.minY + rect.height * 0.12,
-            width: max(1.2, rect.width * 0.10),
-            height: max(1.2, rect.width * 0.08)
-        )
-        context.fill(Path(ellipseIn: mossGrain), with: .color(.white.opacity(hydrated ? 0.30 : 0.12)))
+        for index in 0..<5 {
+            let grain = max(0.9, rect.width * (0.045 + CGFloat(index % 2) * 0.012))
+            let mossGrain = CGRect(
+                x: rect.minX + rect.width * (0.16 + CGFloat((index * 7) % 11) / 15),
+                y: rect.minY + rect.height * (0.12 + CGFloat((index * 5) % 9) / 16),
+                width: grain,
+                height: grain * 0.76
+            )
+            context.fill(
+                Path(ellipseIn: mossGrain),
+                with: .color(.white.opacity(hydrated ? 0.22 : 0.09))
+            )
+        }
         guard tone == 2 else { return }
 
         let highlight = CGRect(
@@ -121,11 +169,17 @@ private extension ProceduralTerrariumSnapshotView {
     private func drawBranch(in context: inout GraphicsContext, geometry: SnapshotGeometry) {
         var path = Path()
         path.move(to: geometry.project(xPosition: -0.54, zPosition: 0.18))
-        path.addLine(to: geometry.project(xPosition: 0.44, zPosition: -0.04))
+        path.addQuadCurve(
+            to: geometry.project(xPosition: 0.58, zPosition: -0.06),
+            control: CGPoint(
+                x: geometry.centerX - geometry.jarWidth * 0.03,
+                y: geometry.groundY - geometry.size.height * 0.075
+            )
+        )
         context.stroke(
             path,
             with: .color(Color(red: 0.36, green: 0.17, blue: 0.045)),
-            style: StrokeStyle(lineWidth: max(2, geometry.size.width * 0.028), lineCap: .square)
+            style: StrokeStyle(lineWidth: max(2, geometry.size.width * 0.034), lineCap: .round)
         )
         context.stroke(
             path,
@@ -257,7 +311,7 @@ private extension ProceduralTerrariumSnapshotView {
             )
         )
 
-        for index in 0..<7 {
+        for index in 0..<4 {
             let diameter = max(1.2, geometry.size.width * (index.isMultiple(of: 3) ? 0.015 : 0.009))
             let point = CGPoint(
                 x: geometry.centerX + geometry.jarWidth * CGFloat((index * 17) % 13 - 6) / 18,
@@ -282,23 +336,23 @@ private extension ProceduralTerrariumSnapshotView {
             x: geometry.centerX - geometry.jarWidth * 0.53,
             y: geometry.baseY,
             width: geometry.jarWidth * 1.06,
-            height: geometry.size.height * 0.13
+            height: geometry.size.height * 0.095
         )
         context.fill(Path(roundedRect: baseRect, cornerRadius: 4), with: .color(darkMetal))
         context.stroke(Path(roundedRect: baseRect, cornerRadius: 4), with: .color(bronze), lineWidth: 1.5)
 
         let collar = CGRect(
-            x: geometry.centerX - geometry.jarWidth * 0.17,
+            x: geometry.centerX - geometry.jarWidth * 0.14,
             y: geometry.size.height * 0.045,
-            width: geometry.jarWidth * 0.34,
-            height: geometry.size.height * 0.07
+            width: geometry.jarWidth * 0.28,
+            height: geometry.size.height * 0.055
         )
         context.fill(Path(roundedRect: collar, cornerRadius: 3), with: .color(darkMetal))
         let knob = CGRect(
-            x: geometry.centerX - geometry.jarWidth * 0.075,
-            y: geometry.size.height * 0.012,
-            width: geometry.jarWidth * 0.15,
-            height: geometry.size.height * 0.055
+            x: geometry.centerX - geometry.jarWidth * 0.06,
+            y: geometry.size.height * 0.018,
+            width: geometry.jarWidth * 0.12,
+            height: geometry.size.height * 0.045
         )
         context.fill(Path(ellipseIn: knob), with: .color(darkMetal))
     }

@@ -7,7 +7,7 @@ enum GlassClocheFactory {
         var normals: [SIMD3<Float>] = []
     }
 
-    static func makeGlassCloche() -> Entity {
+    static func makeGlassCloche(hydrated: Bool) -> Entity {
         let root = Entity()
         root.name = "RealityKitGlassBowl"
         let glass = TerrariumMaterialFactory.glass()
@@ -17,7 +17,45 @@ enum GlassClocheFactory {
             materials: [glass]
         )
         root.addChild(cloche)
+
+        let longReflection = ModelEntity(
+            mesh: .generateBox(size: SIMD3<Float>(0.026, 1.52, 0.018), cornerRadius: 0.009),
+            materials: [TerrariumMaterialFactory.glassHighlight()]
+        )
+        longReflection.position = SIMD3<Float>(-0.93, 0.40, 0.91)
+        longReflection.orientation = simd_quatf(angle: -0.07, axis: SIMD3<Float>(0, 0, 1))
+        root.addChild(longReflection)
+
+        let shortReflection = ModelEntity(
+            mesh: .generateBox(size: SIMD3<Float>(0.018, 0.58, 0.014), cornerRadius: 0.007),
+            materials: [TerrariumMaterialFactory.glassHighlight()]
+        )
+        shortReflection.position = SIMD3<Float>(0.98, 0.92, 0.82)
+        shortReflection.orientation = simd_quatf(angle: 0.05, axis: SIMD3<Float>(0, 0, 1))
+        root.addChild(shortReflection)
+
+        if hydrated {
+            addCondensation(to: root)
+        }
         return root
+    }
+
+    private static func addCondensation(to root: Entity) {
+        let material = TerrariumMaterialFactory.condensationFog()
+        let patches: [(SIMD3<Float>, SIMD3<Float>)] = [
+            (SIMD3<Float>(-0.53, 1.25, 1.14), SIMD3<Float>(0.34, 0.52, 0.010)),
+            (SIMD3<Float>(0.66, 1.48, 1.08), SIMD3<Float>(0.25, 0.34, 0.009)),
+            (SIMD3<Float>(0.93, 0.18, 0.84), SIMD3<Float>(0.16, 0.42, 0.008))
+        ]
+        for patch in patches {
+            let fog = ModelEntity(
+                mesh: .generateSphere(radius: 1),
+                materials: [material]
+            )
+            fog.position = patch.0
+            fog.scale = patch.1
+            root.addChild(fog)
+        }
     }
 
     private static func makeClocheMesh(

@@ -86,7 +86,7 @@ def add_cylinder(
 
 def add_shell() -> None:
     dark_metal = material("DarkMetal", (0.045, 0.042, 0.030, 1), metallic=0.72, roughness=0.30)
-    bronze = material("BronzeEdge", (0.22, 0.14, 0.035, 1), metallic=0.82, roughness=0.24)
+    bronze = material("BronzeEdge", (0.17, 0.105, 0.028, 1), metallic=0.78, roughness=0.30)
     glass_material = material(
         "Glass",
         (0.60, 0.86, 0.91, 0.075),
@@ -94,16 +94,16 @@ def add_shell() -> None:
         glass=True,
     )
 
-    add_cylinder("Base", 1.50, 0.40, -1.04, dark_metal)
-    add_cylinder("BaseLowerRim", 1.57, 0.08, -1.24, bronze)
-    add_cylinder("BaseUpperRim", 1.57, 0.08, -0.82, bronze)
+    add_cylinder("Base", 1.46, 0.20, -1.03, dark_metal)
+    add_cylinder("BaseLowerRim", 1.50, 0.045, -1.145, bronze)
+    add_cylinder("BaseUpperRim", 1.50, 0.05, -0.91, bronze)
 
-    for index in range(28):
-        angle = index / 28 * 6.283185307
+    for index in range(24):
+        angle = index / 24 * 6.283185307
         bpy.ops.mesh.primitive_cube_add(
-            location=(1.49 * __import__("math").cos(angle), 1.49 * __import__("math").sin(angle), -1.04),
+            location=(1.455 * __import__("math").cos(angle), 1.455 * __import__("math").sin(angle), -1.03),
             rotation=(0, 0, angle),
-            scale=(0.035, 0.055, 0.15),
+            scale=(0.024, 0.038, 0.064),
         )
         rib = bpy.context.object
         rib.name = f"BaseRib_{index:02d}"
@@ -125,9 +125,9 @@ def add_shell() -> None:
     dome.data.materials.append(glass_material)
     dome.parent = glass_root
 
-    add_cylinder("TopCollarLower", 0.49, 0.18, 2.39, dark_metal)
-    add_cylinder("TopCollarEdge", 0.55, 0.07, 2.49, bronze)
-    bpy.ops.mesh.primitive_uv_sphere_add(segments=32, ring_count=16, radius=0.25, location=(0, 0, 2.72))
+    add_cylinder("TopCollarLower", 0.40, 0.15, 2.68, dark_metal)
+    add_cylinder("TopCollarEdge", 0.45, 0.055, 2.77, bronze)
+    bpy.ops.mesh.primitive_uv_sphere_add(segments=32, ring_count=16, radius=0.20, location=(0, 0, 2.94))
     knob = bpy.context.object
     knob.name = "TopKnob"
     knob.scale = (1, 1, 0.72)

@@ -86,17 +86,20 @@ public enum TerrariumLayoutGenerator {
                 zPosition + random.range(-0.08...0.08)
             )
         }
-        let mossCount = min(56, 20 + stage.rawValue * 6 + growthPoints / 3)
+        // Each entry becomes a multi-lobed cushion in RealityKit. Keeping the
+        // number of entities modest preserves smooth rotation while the mesh
+        // itself supplies the fine moss detail.
+        let mossCount = min(22, 8 + stage.rawValue * 2 + growthPoints / 7)
         return (0..<mossCount).map { index in
             let anchor = anchors[index % anchors.count]
             let angle = random.range(0...(Float.pi * 2))
             let scatter = random.range(0.02...0.20) * (index < anchors.count ? 0.25 : 1)
-            let radius = random.range(0.15...0.27) * (0.90 + progress * 0.25)
+            let radius = random.range(0.15...0.25) * (0.90 + progress * 0.20)
             return TerrariumLayout.MossMound(
                 xPosition: clamp(anchor.0 + cos(angle) * scatter, to: -1.02...1.02),
                 zPosition: clamp(anchor.1 + sin(angle) * scatter * 0.72, to: -0.70...0.70),
                 radius: radius,
-                height: random.range(0.13...0.31) * (0.80 + progress * 0.35),
+                height: random.range(0.15...0.33) * (0.82 + progress * 0.32),
                 tone: Int(random.next() % 3),
                 rotation: random.range(0...(Float.pi * 2))
             )
@@ -104,13 +107,13 @@ public enum TerrariumLayoutGenerator {
     }
 
     private static func makeStones(random: inout SplitMix64) -> [TerrariumLayout.Stone] {
-        let stonePositions: [(Float, Float)] = [(-0.72, -0.18), (0.68, -0.04), (0.44, 0.48), (-0.20, 0.56)]
+        let stonePositions: [(Float, Float)] = [(-0.48, 0.06), (0.72, -0.18), (0.47, 0.52), (-0.84, 0.48)]
         return stonePositions.enumerated().map { index, position in
             TerrariumLayout.Stone(
                 xPosition: position.0 + random.range(-0.10...0.10),
                 zPosition: position.1 + random.range(-0.08...0.08),
-                radius: random.range(0.13...0.21),
-                height: random.range(0.09...0.16),
+                radius: index == 0 ? random.range(0.35...0.43) : random.range(0.14...0.22),
+                height: index == 0 ? random.range(0.28...0.36) : random.range(0.10...0.18),
                 rotation: random.range(0...(Float.pi * 2)),
                 tone: index % 3
             )
@@ -121,14 +124,14 @@ public enum TerrariumLayoutGenerator {
         stage: GrowthStage,
         random: inout SplitMix64
     ) -> [TerrariumLayout.FernFrond] {
-        let frondCount = stage == .seed ? 0 : min(7, stage.rawValue + 1)
+        let frondCount = stage == .seed ? 0 : min(6, stage.rawValue + 1)
         return (0..<frondCount).map { index in
             let fan = frondCount == 1 ? 0 : Float(index) / Float(frondCount - 1) - 0.5
             return TerrariumLayout.FernFrond(
                 angle: fan * 1.75 + random.range(-0.14...0.14),
-                height: (0.42 + Float(stage.rawValue) * 0.13) * random.range(0.82...1.12),
-                bend: fan * random.range(0.18...0.42),
-                leafletPairs: min(8, 2 + stage.rawValue + index % 2),
+                height: (0.53 + Float(stage.rawValue) * 0.16) * random.range(0.86...1.14),
+                bend: fan * random.range(0.24...0.48),
+                leafletPairs: min(9, 3 + stage.rawValue + index % 2),
                 tone: index % 3
             )
         }

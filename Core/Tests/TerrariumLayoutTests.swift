@@ -38,4 +38,21 @@ struct TerrariumLayoutTests {
 
         #expect(wet.droplets.count > dry.droplets.count)
     }
+
+    @Test
+    func matureLayoutStaysWithinRuntimeEntityBudget() {
+        let mature = TerrariumLayoutGenerator.generate(seed: 42, growthPoints: 100, hydration: 70)
+
+        #expect(mature.mossMounds.count <= 22)
+        #expect(mature.fernFronds.count <= 6)
+    }
+
+    @Test
+    func firstStoneIsTheCompositionalAnchor() {
+        let layout = TerrariumLayoutGenerator.generate(seed: 42, growthPoints: 21, hydration: 70)
+        let heroStone = layout.stones[0]
+
+        #expect(layout.stones.dropFirst().allSatisfy { heroStone.radius > $0.radius })
+        #expect(layout.stones.dropFirst().allSatisfy { heroStone.height > $0.height })
+    }
 }

@@ -3,6 +3,29 @@ import UIKit
 
 @MainActor
 enum TerrariumMaterialFactory {
+    private static var mossAlbedo: TextureResource?
+
+    static func prepareTextures() async {
+        guard mossAlbedo == nil else { return }
+        mossAlbedo = try? await TextureResource(named: "MossAlbedo", in: .main)
+    }
+
+    static func gravel() -> PhysicallyBasedMaterial {
+        material(
+            color: UIColor(red: 0.17, green: 0.16, blue: 0.13, alpha: 1),
+            roughness: 0.78,
+            specular: 0.30
+        )
+    }
+
+    static func charcoal() -> PhysicallyBasedMaterial {
+        material(
+            color: UIColor(red: 0.035, green: 0.040, blue: 0.032, alpha: 1),
+            roughness: 0.90,
+            specular: 0.08
+        )
+    }
+
     static func soil(hydrated: Bool) -> PhysicallyBasedMaterial {
         material(
             color: UIColor(
@@ -28,13 +51,37 @@ enum TerrariumMaterialFactory {
             .init(red: 0.25, green: 0.28, blue: 0.065, alpha: 1),
             .init(red: 0.34, green: 0.32, blue: 0.075, alpha: 1)
         ]
-        return material(
+        var result = material(
             color: (hydrated ? wetColors : dryColors)[tone],
             roughness: hydrated ? 0.76 : 0.95,
             specular: hydrated ? 0.22 : 0.08,
             clearcoat: hydrated ? 0.055 : 0.02,
             clearcoatRoughness: hydrated ? 0.46 : 0.80
         )
+        if let mossAlbedo {
+            let wetTints: [UIColor] = [
+                .init(red: 0.92, green: 0.98, blue: 0.86, alpha: 1),
+                .init(red: 0.98, green: 1.00, blue: 0.90, alpha: 1),
+                .init(red: 1.00, green: 1.00, blue: 0.94, alpha: 1)
+            ]
+            let dryTints: [UIColor] = [
+                .init(red: 0.94, green: 0.90, blue: 0.72, alpha: 1),
+                .init(red: 0.98, green: 0.94, blue: 0.76, alpha: 1),
+                .init(red: 1.00, green: 0.96, blue: 0.80, alpha: 1)
+            ]
+            result.baseColor = .init(
+                tint: (hydrated ? wetTints : dryTints)[tone],
+                texture: .init(mossAlbedo)
+            )
+            result.emissiveColor = .init(color: UIColor(
+                red: hydrated ? 0.08 : 0.05,
+                green: hydrated ? 0.24 : 0.13,
+                blue: 0.025,
+                alpha: 1
+            ))
+            result.emissiveIntensity = hydrated ? 0.055 : 0.022
+        }
+        return result
     }
 
     static func stone(tone: Int, hydrated: Bool) -> PhysicallyBasedMaterial {
@@ -45,10 +92,10 @@ enum TerrariumMaterialFactory {
         ]
         return material(
             color: colors[tone],
-            roughness: hydrated ? 0.36 : 0.76,
-            specular: hydrated ? 0.55 : 0.24,
-            clearcoat: hydrated ? 0.38 : 0.05,
-            clearcoatRoughness: hydrated ? 0.18 : 0.62
+            roughness: hydrated ? 0.52 : 0.78,
+            specular: hydrated ? 0.36 : 0.20,
+            clearcoat: hydrated ? 0.18 : 0.04,
+            clearcoatRoughness: hydrated ? 0.32 : 0.64
         )
     }
 
@@ -70,13 +117,15 @@ enum TerrariumMaterialFactory {
     }
 
     static func leaf(color: UIColor, hydrated: Bool) -> PhysicallyBasedMaterial {
-        material(
+        var result = material(
             color: color,
             roughness: hydrated ? 0.48 : 0.86,
             specular: hydrated ? 0.34 : 0.10,
             clearcoat: hydrated ? 0.12 : 0,
             clearcoatRoughness: 0.32
         )
+        result.faceCulling = .none
+        return result
     }
 
     static func glass() -> PhysicallyBasedMaterial {
@@ -87,9 +136,35 @@ enum TerrariumMaterialFactory {
             clearcoat: 1,
             clearcoatRoughness: 0.02
         )
-        glass.blending = .transparent(opacity: 0.085)
+        glass.blending = .transparent(opacity: 0.062)
         glass.faceCulling = .none
         return glass
+    }
+
+    static func glassHighlight() -> PhysicallyBasedMaterial {
+        var highlight = material(
+            color: UIColor(red: 0.90, green: 0.98, blue: 1, alpha: 1),
+            roughness: 0.03,
+            specular: 1,
+            clearcoat: 1,
+            clearcoatRoughness: 0.01,
+            emissiveColor: UIColor(red: 0.45, green: 0.82, blue: 1, alpha: 1),
+            emissiveIntensity: 0.012
+        )
+        highlight.blending = .transparent(opacity: 0.10)
+        highlight.faceCulling = .none
+        return highlight
+    }
+
+    static func condensationFog() -> PhysicallyBasedMaterial {
+        var fog = material(
+            color: UIColor(red: 0.72, green: 0.90, blue: 0.88, alpha: 1),
+            roughness: 0.96,
+            specular: 0.05
+        )
+        fog.blending = .transparent(opacity: 0.018)
+        fog.faceCulling = .none
+        return fog
     }
 
     static func droplet(glint: Float) -> PhysicallyBasedMaterial {
@@ -109,11 +184,11 @@ enum TerrariumMaterialFactory {
     static func darkMetal() -> PhysicallyBasedMaterial {
         material(
             color: UIColor(red: 0.055, green: 0.05, blue: 0.032, alpha: 1),
-            roughness: 0.22,
-            metallic: 0.92,
-            specular: 0.78,
-            clearcoat: 0.32,
-            clearcoatRoughness: 0.16
+            roughness: 0.36,
+            metallic: 0.72,
+            specular: 0.58,
+            clearcoat: 0.20,
+            clearcoatRoughness: 0.24
         )
     }
 

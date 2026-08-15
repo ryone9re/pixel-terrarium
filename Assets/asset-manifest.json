@@ -6,17 +6,17 @@
     {
       "file": "USDZ/terrarium_shell.usdz",
       "kind": "shell-usdz",
-      "triangleCount": 6936,
-      "bytes": 312731,
-      "sha256": "42ab68b02caa75add4448baf5883300b8f23daa907a55339707de9fed4b73652"
+      "triangleCount": 6888,
+      "bytes": 337104,
+      "sha256": "77b2b505f6b7507ae2f103c049f2aa9b0ad82d006532752397c60748d4cfbfcf"
     },
     {
       "file": "Preview/terrarium_shell.png",
       "kind": "preview-png",
       "width": 1024,
       "height": 1024,
-      "bytes": 987683,
-      "sha256": "cdd8f4d0eac611956b91d932d5ef98ec647659aa0429ea1adfd04d6e905484ae"
+      "bytes": 1010923,
+      "sha256": "22f7e6e772eb7cc5979dc31e15e1fbbf79ec33d41665e782b24fe403c4e06b19"
     }
   ]
 }

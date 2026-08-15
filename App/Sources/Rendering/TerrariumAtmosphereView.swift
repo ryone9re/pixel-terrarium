@@ -8,8 +8,8 @@ struct WaterGlintsView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            ForEach(Array(droplets.prefix(14).enumerated()), id: \.offset) { index, droplet in
-                DropletGlint(isSparkle: index.isMultiple(of: 4), glint: droplet.glint)
+            ForEach(Array(droplets.prefix(8).enumerated()), id: \.offset) { index, droplet in
+                DropletGlint(isSparkle: index.isMultiple(of: 5), glint: droplet.glint)
                     .frame(
                         width: 5 + CGFloat(droplet.size) * 110,
                         height: 8 + CGFloat(droplet.size) * 150
@@ -18,7 +18,7 @@ struct WaterGlintsView: View {
                         x: geometry.size.width * CGFloat(0.5 + droplet.xRatio * 0.31),
                         y: geometry.size.height * CGFloat(0.14 + droplet.yRatio * 0.69)
                     )
-                    .opacity(reduceMotion ? 0.65 : (shimmering == index.isMultiple(of: 2) ? 1 : 0.32))
+                    .opacity(reduceMotion ? 0.48 : (shimmering == index.isMultiple(of: 2) ? 0.72 : 0.20))
                     .animation(
                         reduceMotion
                             ? nil
@@ -41,15 +41,15 @@ private struct DropletGlint: View {
         if isSparkle {
             Image(systemName: "sparkle")
                 .font(.system(size: 9, weight: .light))
-                .foregroundStyle(.white.opacity(0.82))
-                .shadow(color: .cyan.opacity(0.80), radius: 5)
+                .foregroundStyle(.white.opacity(0.68))
+                .shadow(color: .cyan.opacity(0.58), radius: 4)
         } else {
             Capsule()
                 .fill(
                     LinearGradient(
                         colors: [
-                            .white.opacity(0.78 + Double(glint) * 0.16),
-                            .cyan.opacity(0.16),
+                            .white.opacity(0.56 + Double(glint) * 0.14),
+                            .cyan.opacity(0.11),
                             .white.opacity(0.05)
                         ],
                         startPoint: .topLeading,
@@ -62,7 +62,7 @@ private struct DropletGlint: View {
                         .frame(width: 2.4, height: 2.4)
                         .padding(2)
                 }
-                .shadow(color: .cyan.opacity(0.42), radius: 4)
+                .shadow(color: .cyan.opacity(0.28), radius: 3)
         }
     }
 }
@@ -73,8 +73,8 @@ struct RomanticMotesView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            ForEach(0..<11, id: \.self) { index in
-                let ratio = CGFloat(index) / 10
+            ForEach(0..<6, id: \.self) { index in
+                let ratio = CGFloat(index) / 5
                 Circle()
                     .fill(index.isMultiple(of: 3) ? Color.cyan : Color.yellow)
                     .frame(width: 1.5 + CGFloat(index % 4), height: 1.5 + CGFloat(index % 4))
@@ -91,7 +91,7 @@ struct RomanticMotesView: View {
                         x: reduceMotion ? 0 : (floating ? CGFloat((index % 3) - 1) * 7 : 0),
                         y: reduceMotion ? 0 : (floating ? -8 - CGFloat(index % 4) * 2 : 3)
                     )
-                    .opacity(floating || reduceMotion ? 0.25 + Double(index % 4) * 0.08 : 0.08)
+                    .opacity(floating || reduceMotion ? 0.14 + Double(index % 3) * 0.06 : 0.04)
                     .animation(
                         reduceMotion
                             ? nil
