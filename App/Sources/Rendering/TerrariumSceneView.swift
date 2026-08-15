@@ -40,7 +40,7 @@ struct TerrariumSceneView: View {
                 }
                 root.orientation = simd_quatf(angle: displayedYaw, axis: SIMD3<Float>(0, 1, 0))
             }
-            .id("\(seed)-\(growthPoints)")
+            .id("\(seed)-\(growthPoints)-\(hydration)-\(period.rawValue)")
 
             if hydration >= 40 && (period == .evening || period == .night) {
                 WaterGlintsView(droplets: layout.droplets, reduceMotion: reduceMotion)

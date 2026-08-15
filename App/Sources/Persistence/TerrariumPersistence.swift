@@ -113,6 +113,12 @@ enum TerrariumPersistence {
         )
     }
 
+    #if DEBUG
+    static func reloadWidgetTimelines() {
+        WidgetCenter.shared.reloadTimelines(ofKind: TerrariumCore.widgetKind)
+    }
+    #endif
+
     private static func writeSnapshot(
         for record: TerrariumRecord,
         eventRecords: [WateringEventRecord],

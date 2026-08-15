@@ -15,6 +15,13 @@ struct TerrariumHomeView: View {
     @Environment(\.modelContext) private var modelContext
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     @AppStorage("soundEnabled") private var soundEnabled = true
+    #if DEBUG
+    @AppStorage(
+        TerrariumCore.debugPeriodKey,
+        store: UserDefaults(suiteName: TerrariumCore.appGroupIdentifier)
+    ) private var debugPeriodRawValue =
+        DebugDayPeriodOverride.automatic.rawValue
+    #endif
 
     let terrarium: TerrariumRecord
     let allTerrariums: [TerrariumRecord]
@@ -40,7 +47,13 @@ struct TerrariumHomeView: View {
     private var stage: GrowthStage { GrowthStage(growthPoints: terrarium.growthPoints) }
 
     private var period: DayPeriod {
-        DayPeriod(
+        #if DEBUG
+        if let override = DebugDayPeriodOverride(rawValue: debugPeriodRawValue),
+           let period = override.period {
+            return period
+        }
+        #endif
+        return DayPeriod(
             date: AppClock.now,
             timeZone: TimeZone(identifier: terrarium.timeZoneIdentifier) ?? .current
         )

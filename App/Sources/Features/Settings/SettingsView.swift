@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import TerrariumCore
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
@@ -8,6 +9,11 @@ struct SettingsView: View {
     @AppStorage("soundEnabled") private var soundEnabled = true
     #if DEBUG
     @AppStorage(AppClock.debugOffsetKey) private var debugOffsetDays = 0
+    @AppStorage(
+        TerrariumCore.debugPeriodKey,
+        store: UserDefaults(suiteName: TerrariumCore.appGroupIdentifier)
+    ) private var debugPeriodRawValue =
+        DebugDayPeriodOverride.automatic.rawValue
     #endif
 
     let terrarium: TerrariumRecord
@@ -42,7 +48,20 @@ struct SettingsView: View {
                 }
 
                 #if DEBUG
-                Section("開発者メニュー") {
+                Section {
+                    Picker("時間帯プレビュー", selection: $debugPeriodRawValue) {
+                        ForEach(DebugDayPeriodOverride.allCases) { option in
+                            Text(option.displayName).tag(option.rawValue)
+                        }
+                    }
+                    .accessibilityIdentifier("debug-period-picker")
+                    .accessibilityValue(
+                        DebugDayPeriodOverride(rawValue: debugPeriodRawValue)?.displayName ?? "自動"
+                    )
+                    .onChange(of: debugPeriodRawValue) {
+                        TerrariumPersistence.reloadWidgetTimelines()
+                    }
+
                     LabeledContent("進めた日数", value: "\(debugOffsetDays)日")
                         .accessibilityIdentifier("advanced-day-count")
                         .accessibilityValue("\(debugOffsetDays)日")
@@ -60,6 +79,10 @@ struct SettingsView: View {
                         debugOffsetDays = 0
                     }
                     .accessibilityIdentifier("reset-day-button")
+                } header: {
+                    Text("開発者メニュー")
+                } footer: {
+                    Text("時間帯プレビューは表示だけを変更します。日付、成長、水やり状態には影響しません。")
                 }
                 #endif
 

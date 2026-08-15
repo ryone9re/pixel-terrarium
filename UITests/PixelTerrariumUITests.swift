@@ -55,6 +55,14 @@ final class PixelTerrariumUITests: XCTestCase {
         XCTAssertTrue(advancedDayCount.waitForExistence(timeout: 4))
         XCTAssertEqual(advancedDayCount.value as? String, "0日")
 
+        let periodPicker = app.descendants(matching: .any)["debug-period-picker"]
+        XCTAssertTrue(periodPicker.waitForExistence(timeout: 4))
+        periodPicker.tap()
+        let nightOption = app.buttons["夜"]
+        XCTAssertTrue(nightOption.waitForExistence(timeout: 2))
+        nightOption.tap()
+        XCTAssertEqual(periodPicker.value as? String, "夜")
+
         app.buttons["advance-day-button"].tap()
 
         let advanced = NSPredicate(format: "value == %@", "1日")

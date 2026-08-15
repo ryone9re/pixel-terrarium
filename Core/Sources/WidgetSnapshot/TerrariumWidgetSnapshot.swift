@@ -122,4 +122,5 @@ public struct WidgetArtworkStore: Sendable {
 public enum TerrariumCore {
     public static let appGroupIdentifier = "group.dev.ryo.pixelterrarium"
     public static let widgetKind = "PixelTerrariumWidget"
+    public static let debugPeriodKey = "debugDayPeriodOverride"
 }

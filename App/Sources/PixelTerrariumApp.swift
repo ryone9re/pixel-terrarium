@@ -1,5 +1,6 @@
 import SwiftData
 import SwiftUI
+import TerrariumCore
 
 @main
 struct PixelTerrariumApp: App {
@@ -8,6 +9,8 @@ struct PixelTerrariumApp: App {
     init() {
         if ProcessInfo.processInfo.arguments.contains("--ui-testing") {
             UserDefaults.standard.removeObject(forKey: "debugTimeOffsetDays")
+            UserDefaults(suiteName: TerrariumCore.appGroupIdentifier)?
+                .removeObject(forKey: TerrariumCore.debugPeriodKey)
         }
         let schema = Schema([TerrariumRecord.self, WateringEventRecord.self])
         let configuration = ModelConfiguration(

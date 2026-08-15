@@ -8,6 +8,19 @@ struct TerrariumTimelineEntry: TimelineEntry {
     let artworkData: Data?
 }
 
+private func resolvedPeriod(at date: Date, snapshot: TerrariumWidgetSnapshot) -> DayPeriod {
+    #if DEBUG
+    if let rawValue = UserDefaults(suiteName: TerrariumCore.appGroupIdentifier)?
+        .string(forKey: TerrariumCore.debugPeriodKey),
+       let override = DebugDayPeriodOverride(rawValue: rawValue),
+       let period = override.period {
+        return period
+    }
+    #endif
+    let timeZone = TimeZone(identifier: snapshot.timeZoneIdentifier) ?? .current
+    return DayPeriod(date: date, timeZone: timeZone)
+}
+
 struct TerrariumTimelineProvider: TimelineProvider {
     func placeholder(in context: Context) -> TerrariumTimelineEntry {
         TerrariumTimelineEntry(date: .now, snapshot: .placeholder(), artworkData: nil)
@@ -80,8 +93,7 @@ struct TerrariumTimelineProvider: TimelineProvider {
     }
 
     private func period(at date: Date, snapshot: TerrariumWidgetSnapshot) -> DayPeriod {
-        let timeZone = TimeZone(identifier: snapshot.timeZoneIdentifier) ?? .current
-        return DayPeriod(date: date, timeZone: timeZone)
+        resolvedPeriod(at: date, snapshot: snapshot)
     }
 }
 
@@ -90,10 +102,7 @@ struct TerrariumWidgetView: View {
     let entry: TerrariumTimelineEntry
 
     private var period: DayPeriod {
-        DayPeriod(
-            date: entry.date,
-            timeZone: TimeZone(identifier: entry.snapshot.timeZoneIdentifier) ?? .current
-        )
+        resolvedPeriod(at: entry.date, snapshot: entry.snapshot)
     }
 
     private var foregroundColor: Color {
