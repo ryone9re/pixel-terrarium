@@ -207,8 +207,9 @@ private extension ProceduralTerrariumSnapshotView {
                 width: diameter,
                 height: diameter * 0.78
             )
+            let stonePath = facetedStonePath(in: rect, rotation: stone.rotation)
             context.fill(
-                Path(ellipseIn: rect),
+                stonePath,
                 with: .linearGradient(
                     Gradient(colors: [
                         .white.opacity(snapshot.hydration >= 40 ? 0.66 : 0.36),
@@ -219,7 +220,42 @@ private extension ProceduralTerrariumSnapshotView {
                     endPoint: CGPoint(x: rect.maxX, y: rect.maxY)
                 )
             )
+
+            var litFace = Path()
+            litFace.move(to: CGPoint(x: rect.minX + rect.width * 0.18, y: rect.minY + rect.height * 0.48))
+            litFace.addLine(to: CGPoint(x: rect.minX + rect.width * 0.42, y: rect.minY + rect.height * 0.08))
+            litFace.addLine(to: CGPoint(x: rect.minX + rect.width * 0.55, y: rect.minY + rect.height * 0.55))
+            litFace.closeSubpath()
+            context.fill(litFace, with: .color(.white.opacity(0.11)))
         }
+    }
+
+    private func facetedStonePath(in rect: CGRect, rotation: Float) -> Path {
+        let variation = CGFloat(sin(rotation)) * 0.035
+        let ratios: [(CGFloat, CGFloat)] = [
+            (0.08, 0.64),
+            (0.16 + variation, 0.28),
+            (0.40, 0.06),
+            (0.72 + variation, 0.13),
+            (0.94, 0.43),
+            (0.88 - variation, 0.76),
+            (0.62, 0.94),
+            (0.27 - variation, 0.88)
+        ]
+        var path = Path()
+        for (index, ratio) in ratios.enumerated() {
+            let point = CGPoint(
+                x: rect.minX + rect.width * ratio.0,
+                y: rect.minY + rect.height * ratio.1
+            )
+            if index == 0 {
+                path.move(to: point)
+            } else {
+                path.addLine(to: point)
+            }
+        }
+        path.closeSubpath()
+        return path
     }
 
     private func drawFern(in context: inout GraphicsContext, geometry: SnapshotGeometry) {

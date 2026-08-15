@@ -46,11 +46,7 @@ enum OrganicMeshFactory {
             return cached
         }
         var builder = MeshBuilder()
-        builder.appendEllipsoid(
-            center: .zero,
-            scale: SIMD3<Float>(1, 1, 1),
-            detail: OrganicDetail(rings: 7, segments: 12, variant: key + 19, crag: 0.095)
-        )
+        builder.appendFacetedRock(variant: key)
         let mesh = builder.makeMesh(name: "Stone-\(key)")
         stoneCache[key] = mesh
         return mesh
@@ -275,6 +271,80 @@ private struct MeshBuilder {
                 indices += [lower, upper, lowerNext, lowerNext, upper, upperNext]
             }
         }
+    }
+
+    mutating func appendFacetedRock(variant: Int) {
+        let segments = 7 + variant % 2
+        let ringHeights: [Float] = [-0.62, -0.24, 0.22, 0.58]
+        let ringRadii: [Float] = [0.72, 1.00, 0.88, 0.54]
+        var rings: [[SIMD3<Float>]] = []
+
+        for ringIndex in ringHeights.indices {
+            let angleOffset = Float(ringIndex % 2) * 0.16 + Float(variant) * 0.11
+            let ring = (0..<segments).map { segment -> SIMD3<Float> in
+                let angle = Float(segment) / Float(segments) * .pi * 2 + angleOffset
+                let radiusNoise = radialNoise(
+                    angle: angle,
+                    ring: ringIndex + 2,
+                    variant: variant + 31,
+                    amount: 0.14
+                )
+                let heightNoise = sin(angle * 2.7 + Float(variant) * 1.3) * 0.045
+                let radius = ringRadii[ringIndex] * radiusNoise
+                return SIMD3<Float>(
+                    cos(angle) * radius + ringHeights[ringIndex] * 0.055,
+                    ringHeights[ringIndex] + heightNoise,
+                    sin(angle) * radius * (0.86 + Float(variant % 3) * 0.035)
+                )
+            }
+            rings.append(ring)
+        }
+
+        let bottom = SIMD3<Float>(-0.08, -0.68, 0.04)
+        let top = SIMD3<Float>(0.10 - Float(variant) * 0.025, 0.66, -0.06)
+        for segment in 0..<segments {
+            let next = (segment + 1) % segments
+            appendFacetedTriangle(bottom, rings[0][segment], rings[0][next])
+            appendFacetedTriangle(rings[3][segment], top, rings[3][next])
+        }
+
+        for ringIndex in 0..<(rings.count - 1) {
+            for segment in 0..<segments {
+                let next = (segment + 1) % segments
+                let lower = rings[ringIndex][segment]
+                let lowerNext = rings[ringIndex][next]
+                let upper = rings[ringIndex + 1][segment]
+                let upperNext = rings[ringIndex + 1][next]
+                if (segment + ringIndex + variant).isMultiple(of: 2) {
+                    appendFacetedTriangle(lower, upper, lowerNext)
+                    appendFacetedTriangle(lowerNext, upper, upperNext)
+                } else {
+                    appendFacetedTriangle(lower, upper, upperNext)
+                    appendFacetedTriangle(lower, upperNext, lowerNext)
+                }
+            }
+        }
+    }
+
+    private mutating func appendFacetedTriangle(
+        _ first: SIMD3<Float>,
+        _ second: SIMD3<Float>,
+        _ third: SIMD3<Float>
+    ) {
+        let baseIndex = UInt32(positions.count)
+        var adjustedSecond = second
+        var adjustedThird = third
+        var normal = simd_normalize(simd_cross(adjustedSecond - first, adjustedThird - first))
+        let centroid = (first + adjustedSecond + adjustedThird) / 3
+        if simd_dot(normal, centroid) < 0 {
+            swap(&adjustedSecond, &adjustedThird)
+            normal = -normal
+        }
+
+        positions += [first, adjustedSecond, adjustedThird]
+        normals += Array(repeating: normal, count: 3)
+        textureCoordinates += [SIMD2<Float>(0, 1), SIMD2<Float>(0.5, 0), SIMD2<Float>(1, 1)]
+        indices += [baseIndex, baseIndex + 1, baseIndex + 2]
     }
 
     mutating func appendTube(points: [SIMD3<Float>], radii: [Float], segments: Int) {

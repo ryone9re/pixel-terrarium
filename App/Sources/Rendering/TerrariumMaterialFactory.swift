@@ -86,16 +86,16 @@ enum TerrariumMaterialFactory {
 
     static func stone(tone: Int, hydrated: Bool) -> PhysicallyBasedMaterial {
         let colors: [UIColor] = [
-            .init(red: 0.30, green: 0.31, blue: 0.26, alpha: 1),
-            .init(red: 0.20, green: 0.25, blue: 0.23, alpha: 1),
-            .init(red: 0.38, green: 0.35, blue: 0.29, alpha: 1)
+            .init(red: 0.27, green: 0.28, blue: 0.25, alpha: 1),
+            .init(red: 0.18, green: 0.22, blue: 0.21, alpha: 1),
+            .init(red: 0.34, green: 0.32, blue: 0.28, alpha: 1)
         ]
         return material(
             color: colors[tone],
-            roughness: hydrated ? 0.52 : 0.78,
-            specular: hydrated ? 0.36 : 0.20,
-            clearcoat: hydrated ? 0.18 : 0.04,
-            clearcoatRoughness: hydrated ? 0.32 : 0.64
+            roughness: hydrated ? 0.62 : 0.82,
+            specular: hydrated ? 0.28 : 0.17,
+            clearcoat: hydrated ? 0.10 : 0.025,
+            clearcoatRoughness: hydrated ? 0.42 : 0.68
         )
     }
 
