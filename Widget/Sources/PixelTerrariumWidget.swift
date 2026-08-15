@@ -27,10 +27,17 @@ struct TerrariumTimelineProvider: TimelineProvider {
         let now = Date.now
         let snapshot = loadSnapshot()
         let artworkByPeriod = loadArtworkByPeriod()
-        let dates = [now] + WidgetTimelinePlanner.timelineBoundaries(
+        let periodBoundaries = WidgetTimelinePlanner.timelineBoundaries(
             after: now,
             timeZoneIdentifier: snapshot.timeZoneIdentifier
         )
+        let endDate = periodBoundaries.last ?? now.addingTimeInterval(86_400)
+        let wateringBoundaries = WateringRecency.timelineBoundaries(
+            lastWateredAt: snapshot.lastWateredAt,
+            after: now,
+            through: endDate
+        )
+        let dates = Array(Set([now] + periodBoundaries + wateringBoundaries)).sorted()
         let entries = dates.map { date in
             TerrariumTimelineEntry(
                 date: date,
@@ -120,7 +127,7 @@ struct TerrariumWidgetView: View {
             }
             .font(.caption.bold())
 
-            Text(lastWateredText)
+            lastWateredLabel
                 .font(.caption2)
                 .foregroundStyle(foregroundColor.opacity(0.72))
                 .lineLimit(1)
@@ -129,7 +136,7 @@ struct TerrariumWidgetView: View {
         .foregroundStyle(foregroundColor)
         .accessibilityElement(children: .combine)
         .accessibilityLabel(
-            "\(entry.snapshot.stage.displayName)、水分\(entry.snapshot.hydration)パーセント、\(lastWateredText)"
+            Text("\(smallAccessibilityPrefix)\(lastWateredLabel)")
         )
     }
 
@@ -149,7 +156,7 @@ struct TerrariumWidgetView: View {
                 ProgressView(value: Double(entry.snapshot.hydration), total: 100)
                     .tint(entry.snapshot.hydration >= 40 ? .cyan : .orange)
 
-                Text(statusMessage)
+                lastWateredLabel
                     .font(.caption)
                     .lineLimit(2)
             }
@@ -161,25 +168,24 @@ struct TerrariumWidgetView: View {
         .accessibilityLabel(mediumAccessibilityLabel)
     }
 
-    private var lastWateredText: String {
-        guard let lastWateredAt = entry.snapshot.lastWateredAt else {
-            return "まだ水やりしていません"
-        }
-        return "最終水やり " + lastWateredAt.formatted(.dateTime.month().day())
+    private var lastWateredLabel: Text {
+        Text(WateringRecency.label(
+            lastWateredAt: entry.snapshot.lastWateredAt,
+            relativeTo: entry.date
+        ))
     }
 
-    private var mediumAccessibilityLabel: String {
+    private var smallAccessibilityPrefix: String {
+        "\(entry.snapshot.stage.displayName)、水分\(entry.snapshot.hydration)パーセント、"
+    }
+
+    private var mediumAccessibilityLabel: Text {
+        Text("\(mediumAccessibilityPrefix)\(lastWateredLabel)")
+    }
+
+    private var mediumAccessibilityPrefix: String {
         "\(entry.snapshot.name)、\(entry.snapshot.stage.displayName)、" +
-            "水分\(entry.snapshot.hydration)パーセント、\(statusMessage)"
-    }
-
-    private var statusMessage: String {
-        if entry.snapshot.wateredToday {
-            return "今日は水やり済みです"
-        }
-        return entry.snapshot.hydration >= 40
-            ? "ゆっくり育っています"
-            : "アプリで水をあげましょう"
+            "水分\(entry.snapshot.hydration)パーセント、"
     }
 }
 
