@@ -42,4 +42,23 @@ final class PixelTerrariumUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["星あかりの森"].waitForExistence(timeout: 8))
         XCTAssertTrue(app.buttons["water-button"].exists)
     }
+
+    @MainActor
+    func testDeveloperMenuAdvancesDay() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["--ui-testing", "--seed-sample"]
+        app.launch()
+
+        XCTAssertTrue(app.buttons["settings-button"].waitForExistence(timeout: 8))
+        app.buttons["settings-button"].tap()
+        let advancedDayCount = app.descendants(matching: .any)["advanced-day-count"]
+        XCTAssertTrue(advancedDayCount.waitForExistence(timeout: 4))
+        XCTAssertEqual(advancedDayCount.value as? String, "0日")
+
+        app.buttons["advance-day-button"].tap()
+
+        let advanced = NSPredicate(format: "value == %@", "1日")
+        expectation(for: advanced, evaluatedWith: advancedDayCount)
+        waitForExpectations(timeout: 2)
+    }
 }

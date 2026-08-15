@@ -10,6 +10,7 @@ enum TerrariumWidgetArtworkRenderer {
         snapshot: TerrariumWidgetSnapshot,
         period: DayPeriod
     ) async -> Data? {
+        guard !Task.isCancelled else { return nil }
         let view = ARView(
             frame: CGRect(origin: .zero, size: imageSize),
             cameraMode: .nonAR,
@@ -29,6 +30,7 @@ enum TerrariumWidgetArtworkRenderer {
             layout: layout,
             hydration: snapshot.hydration
         )
+        guard !Task.isCancelled else { return nil }
         let anchor = AnchorEntity(world: .zero)
         anchor.addChild(root)
         for light in TerrariumEntityFactory.makeLights(period: period) {

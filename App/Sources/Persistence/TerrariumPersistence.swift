@@ -5,7 +5,14 @@ import WidgetKit
 
 @MainActor
 enum TerrariumPersistence {
+    private struct ArtworkRequest {
+        let snapshot: TerrariumWidgetSnapshot
+        let containerURL: URL
+    }
+
     private static var artworkTask: Task<Void, Never>?
+    private static var pendingArtworkRequest: ArtworkRequest?
+    private static var isArtworkRenderingSuspended = false
 
     static func create(name: String, now: Date, in context: ModelContext) throws -> TerrariumRecord {
         let resolvedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -87,7 +94,23 @@ enum TerrariumPersistence {
         }
         artworkTask?.cancel()
         artworkTask = nil
+        pendingArtworkRequest = nil
         WidgetCenter.shared.reloadTimelines(ofKind: TerrariumCore.widgetKind)
+    }
+
+    static func suspendArtworkRendering() {
+        isArtworkRenderingSuspended = true
+        artworkTask?.cancel()
+        artworkTask = nil
+    }
+
+    static func resumeArtworkRendering() {
+        isArtworkRenderingSuspended = false
+        guard let request = pendingArtworkRequest else { return }
+        scheduleArtworkRender(
+            for: request.snapshot,
+            containerURL: request.containerURL
+        )
     }
 
     private static func writeSnapshot(
@@ -125,14 +148,26 @@ enum TerrariumPersistence {
         for snapshot: TerrariumWidgetSnapshot,
         containerURL: URL
     ) {
+        pendingArtworkRequest = ArtworkRequest(snapshot: snapshot, containerURL: containerURL)
+        guard !isArtworkRenderingSuspended else { return }
         artworkTask?.cancel()
         artworkTask = Task { @MainActor in
+            do {
+                try await Task.sleep(for: .seconds(1))
+            } catch {
+                return
+            }
             for period in DayPeriod.allCases {
+                guard !Task.isCancelled else { return }
                 guard let artwork = await TerrariumWidgetArtworkRenderer.render(
                     snapshot: snapshot,
                     period: period
                 ), isCurrent(snapshot, in: containerURL) else { return }
                 try? WidgetArtworkStore(containerURL: containerURL, period: period).write(artwork)
+                await Task.yield()
+            }
+            if pendingArtworkRequest?.snapshot == snapshot {
+                pendingArtworkRequest = nil
             }
             WidgetCenter.shared.reloadTimelines(ofKind: TerrariumCore.widgetKind)
         }

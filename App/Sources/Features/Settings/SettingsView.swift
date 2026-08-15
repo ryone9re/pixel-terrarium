@@ -6,6 +6,9 @@ struct SettingsView: View {
     @Environment(\.modelContext) private var modelContext
     @AppStorage("hapticsEnabled") private var hapticsEnabled = true
     @AppStorage("soundEnabled") private var soundEnabled = true
+    #if DEBUG
+    @AppStorage(AppClock.debugOffsetKey) private var debugOffsetDays = 0
+    #endif
 
     let terrarium: TerrariumRecord
     let allTerrariums: [TerrariumRecord]
@@ -40,9 +43,11 @@ struct SettingsView: View {
 
                 #if DEBUG
                 Section("開発者メニュー") {
-                    LabeledContent("進めた日数", value: "\(AppClock.debugOffsetDays)日")
+                    LabeledContent("進めた日数", value: "\(debugOffsetDays)日")
+                        .accessibilityIdentifier("advanced-day-count")
+                        .accessibilityValue("\(debugOffsetDays)日")
                     Button("翌日へ進める") {
-                        AppClock.advanceOneDay()
+                        debugOffsetDays += 1
                         try? TerrariumPersistence.resolve(
                             terrarium,
                             eventRecords: events,
@@ -50,9 +55,11 @@ struct SettingsView: View {
                             in: modelContext
                         )
                     }
+                    .accessibilityIdentifier("advance-day-button")
                     Button("現在の日付へ戻す") {
-                        AppClock.reset()
+                        debugOffsetDays = 0
                     }
+                    .accessibilityIdentifier("reset-day-button")
                 }
                 #endif
 
@@ -86,6 +93,9 @@ struct SettingsView: View {
             } message: {
                 Text("テラリウムと水やりの記録が端末から削除されます。")
             }
+        }
+        .onDisappear {
+            TerrariumPersistence.resumeArtworkRendering()
         }
     }
 

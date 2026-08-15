@@ -104,6 +104,7 @@ struct TerrariumHomeView: View {
             Spacer()
 
             Button {
+                TerrariumPersistence.suspendArtworkRendering()
                 presentedSheet = .settings
             } label: {
                 Label("設定", systemImage: "gearshape")
