@@ -26,25 +26,10 @@ struct TerrariumSceneView: View {
     var body: some View {
         ZStack {
             RealityView { content in
-                let root = Entity()
-                root.name = "terrarium-root"
-                root.position = SIMD3<Float>(0, -0.68, -2.75)
-
-                if let shell = try? await Entity(named: "terrarium_shell", in: .main) {
-                    shell.findEntity(named: "GlassBowl")?.isEnabled = false
-                    root.addChild(shell)
-                } else {
-                    root.addChild(TerrariumEntityFactory.makeHardware())
-                }
-                root.addChild(GlassClocheFactory.makeGlassCloche())
-                root.addChild(TerrariumEntityFactory.makeContents(
+                let root = await TerrariumSceneFactory.makeRoot(
                     layout: layout,
                     hydration: hydration
-                ))
-                root.addChild(TerrariumEntityFactory.makeGlassDroplets(
-                    layout.droplets,
-                    hydrated: hydration >= 40
-                ))
+                )
                 content.add(root)
                 for light in TerrariumEntityFactory.makeLights(period: period) {
                     content.add(light)
@@ -92,7 +77,7 @@ struct TerrariumSceneView: View {
 }
 
 @MainActor
-private enum TerrariumEntityFactory {
+enum TerrariumEntityFactory {
     static func makeLights(period: DayPeriod) -> [Entity] {
         let keyLight = DirectionalLight()
         let warmIntensity: Float = period == .night || period == .evening ? 5_600 : 4_100
@@ -184,7 +169,7 @@ private enum TerrariumEntityFactory {
 
 }
 
-private extension TerrariumEntityFactory {
+extension TerrariumEntityFactory {
     static func makeContents(layout: TerrariumLayout, hydration: Int) -> Entity {
         let root = Entity()
         let hydrated = hydration >= 40

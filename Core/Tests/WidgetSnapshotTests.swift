@@ -42,4 +42,20 @@ struct WidgetSnapshotTests {
             try store.read()
         }
     }
+
+    @Test("Widget画像を原子的に保存して読み戻せる")
+    func artworkRoundTrip() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        let store = WidgetArtworkStore(containerURL: directory, period: .night)
+        let artwork = Data([0x89, 0x50, 0x4E, 0x47])
+        try store.write(artwork)
+
+        #expect(try store.read() == artwork)
+        try store.remove()
+        #expect(!FileManager.default.fileExists(atPath: store.fileURL.path))
+    }
 }

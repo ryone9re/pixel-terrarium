@@ -89,6 +89,36 @@ public struct WidgetSnapshotStore: Sendable {
     }
 }
 
+public struct WidgetArtworkStore: Sendable {
+    public let fileURL: URL
+
+    public init(containerURL: URL, period: DayPeriod) {
+        fileURL = containerURL.appendingPathComponent(
+            "terrarium-widget-artwork-\(period.rawValue).png",
+            isDirectory: false
+        )
+    }
+
+    public func write(_ data: Data) throws {
+        try data.write(to: fileURL, options: .atomic)
+    }
+
+    public func read() throws -> Data {
+        try Data(contentsOf: fileURL)
+    }
+
+    public func remove() throws {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
+        try FileManager.default.removeItem(at: fileURL)
+    }
+
+    public static func removeAll(containerURL: URL) {
+        for period in DayPeriod.allCases {
+            try? WidgetArtworkStore(containerURL: containerURL, period: period).remove()
+        }
+    }
+}
+
 public enum TerrariumCore {
     public static let appGroupIdentifier = "group.dev.ryo.pixelterrarium"
     public static let widgetKind = "PixelTerrariumWidget"

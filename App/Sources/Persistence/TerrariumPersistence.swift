@@ -5,6 +5,8 @@ import WidgetKit
 
 @MainActor
 enum TerrariumPersistence {
+    private static var artworkTask: Task<Void, Never>?
+
     static func create(name: String, now: Date, in context: ModelContext) throws -> TerrariumRecord {
         let resolvedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         let state = TerrariumState.new(
@@ -81,7 +83,10 @@ enum TerrariumPersistence {
             try? FileManager.default.removeItem(
                 at: WidgetSnapshotStore(containerURL: containerURL).fileURL
             )
+            WidgetArtworkStore.removeAll(containerURL: containerURL)
         }
+        artworkTask?.cancel()
+        artworkTask = nil
         WidgetCenter.shared.reloadTimelines(ofKind: TerrariumCore.widgetKind)
     }
 
@@ -113,5 +118,32 @@ enum TerrariumPersistence {
             lastWateredAt: relevantEvents.first?.wateredAt
         )
         try? WidgetSnapshotStore(containerURL: containerURL).write(snapshot)
+        scheduleArtworkRender(for: snapshot, containerURL: containerURL)
+    }
+
+    private static func scheduleArtworkRender(
+        for snapshot: TerrariumWidgetSnapshot,
+        containerURL: URL
+    ) {
+        artworkTask?.cancel()
+        artworkTask = Task { @MainActor in
+            for period in DayPeriod.allCases {
+                guard let artwork = await TerrariumWidgetArtworkRenderer.render(
+                    snapshot: snapshot,
+                    period: period
+                ), isCurrent(snapshot, in: containerURL) else { return }
+                try? WidgetArtworkStore(containerURL: containerURL, period: period).write(artwork)
+            }
+            WidgetCenter.shared.reloadTimelines(ofKind: TerrariumCore.widgetKind)
+        }
+    }
+
+    private static func isCurrent(_ snapshot: TerrariumWidgetSnapshot, in containerURL: URL) -> Bool {
+        guard !Task.isCancelled,
+              let latest = try? WidgetSnapshotStore(containerURL: containerURL).read() else { return false }
+        return latest.terrariumID == snapshot.terrariumID
+            && latest.seed == snapshot.seed
+            && latest.growthPoints == snapshot.growthPoints
+            && latest.hydration == snapshot.hydration
     }
 }

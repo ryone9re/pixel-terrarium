@@ -5,25 +5,38 @@ import WidgetKit
 struct TerrariumTimelineEntry: TimelineEntry {
     let date: Date
     let snapshot: TerrariumWidgetSnapshot
+    let artworkData: Data?
 }
 
 struct TerrariumTimelineProvider: TimelineProvider {
     func placeholder(in context: Context) -> TerrariumTimelineEntry {
-        TerrariumTimelineEntry(date: .now, snapshot: .placeholder())
+        TerrariumTimelineEntry(date: .now, snapshot: .placeholder(), artworkData: nil)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (TerrariumTimelineEntry) -> Void) {
-        completion(TerrariumTimelineEntry(date: .now, snapshot: loadSnapshot()))
+        let now = Date.now
+        let snapshot = loadSnapshot()
+        completion(TerrariumTimelineEntry(
+            date: now,
+            snapshot: snapshot,
+            artworkData: loadArtworkData(at: now, snapshot: snapshot)
+        ))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<TerrariumTimelineEntry>) -> Void) {
         let now = Date.now
-        let projections = WidgetTimelinePlanner.projections(
-            from: loadSnapshot(),
-            now: now
+        let snapshot = loadSnapshot()
+        let artworkByPeriod = loadArtworkByPeriod()
+        let dates = [now] + WidgetTimelinePlanner.timelineBoundaries(
+            after: now,
+            timeZoneIdentifier: snapshot.timeZoneIdentifier
         )
-        let entries = projections.map {
-            TerrariumTimelineEntry(date: $0.date, snapshot: $0.snapshot)
+        let entries = dates.map { date in
+            TerrariumTimelineEntry(
+                date: date,
+                snapshot: snapshot,
+                artworkData: artworkByPeriod[period(at: date, snapshot: snapshot)]
+            )
         }
         let nextReload = entries.last?.date.addingTimeInterval(3_600)
             ?? now.addingTimeInterval(3_600)
@@ -37,6 +50,31 @@ struct TerrariumTimelineProvider: TimelineProvider {
             return .placeholder()
         }
         return (try? WidgetSnapshotStore(containerURL: containerURL).read()) ?? .placeholder()
+    }
+
+    private func loadArtworkData(
+        at date: Date,
+        snapshot: TerrariumWidgetSnapshot
+    ) -> Data? {
+        loadArtworkByPeriod()[period(at: date, snapshot: snapshot)]
+    }
+
+    private func loadArtworkByPeriod() -> [DayPeriod: Data] {
+        guard let containerURL = FileManager.default.containerURL(
+            forSecurityApplicationGroupIdentifier: TerrariumCore.appGroupIdentifier
+        ) else { return [:] }
+        return Dictionary(uniqueKeysWithValues: DayPeriod.allCases.compactMap { period in
+            guard let data = try? WidgetArtworkStore(
+                containerURL: containerURL,
+                period: period
+            ).read() else { return nil }
+            return (period, data)
+        })
+    }
+
+    private func period(at date: Date, snapshot: TerrariumWidgetSnapshot) -> DayPeriod {
+        let timeZone = TimeZone(identifier: snapshot.timeZoneIdentifier) ?? .current
+        return DayPeriod(date: date, timeZone: timeZone)
     }
 }
 
@@ -72,7 +110,7 @@ struct TerrariumWidgetView: View {
 
     private var smallContent: some View {
         VStack(spacing: 3) {
-            ProceduralTerrariumSnapshotView(snapshot: entry.snapshot)
+            TerrariumWidgetArtworkView(snapshot: entry.snapshot, artworkData: entry.artworkData)
                 .frame(maxHeight: 95)
 
             HStack(spacing: 4) {
@@ -97,7 +135,7 @@ struct TerrariumWidgetView: View {
 
     private var mediumContent: some View {
         HStack(spacing: 10) {
-            ProceduralTerrariumSnapshotView(snapshot: entry.snapshot)
+            TerrariumWidgetArtworkView(snapshot: entry.snapshot, artworkData: entry.artworkData)
                 .frame(maxWidth: 145, maxHeight: 140)
 
             VStack(alignment: .leading, spacing: 7) {
@@ -184,11 +222,11 @@ struct PixelTerrariumWidget: Widget {
 #Preview("Small", as: .systemSmall) {
     PixelTerrariumWidget()
 } timeline: {
-    TerrariumTimelineEntry(date: .now, snapshot: .placeholder())
+    TerrariumTimelineEntry(date: .now, snapshot: .placeholder(), artworkData: nil)
 }
 
 #Preview("Medium", as: .systemMedium) {
     PixelTerrariumWidget()
 } timeline: {
-    TerrariumTimelineEntry(date: .now, snapshot: .placeholder())
+    TerrariumTimelineEntry(date: .now, snapshot: .placeholder(), artworkData: nil)
 }

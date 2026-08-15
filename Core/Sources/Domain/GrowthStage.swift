@@ -62,7 +62,7 @@ public enum HydrationStatus: String, Codable, Sendable {
     }
 }
 
-public enum DayPeriod: String, CaseIterable, Codable, Sendable {
+public enum DayPeriod: String, CaseIterable, Codable, Hashable, Sendable {
     case morning
     case daytime
     case evening
