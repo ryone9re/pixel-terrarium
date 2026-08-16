@@ -1,4 +1,4 @@
-# Pixel Terrarium
+# Terrarit
 
 毎日少しずつ育つテラリウムを、アプリとホーム画面ウィジェットで眺める iOS 26 アプリです。
 
@@ -33,7 +33,7 @@ Widgetには同じRealityKitシーンから生成した時間帯別の透過PNG�
 
 ```sh
 tuist generate --no-open
-open PixelTerrarium.xcworkspace
+open Terrarit.xcworkspace
 ```
 
 ## 共通外装の生成
@@ -52,8 +52,8 @@ Blenderはベルジャー型のガラス容器、金属製の台座、上部の�
 ```sh
 swiftlint lint --strict
 xcodebuild \
-  -workspace PixelTerrarium.xcworkspace \
-  -scheme PixelTerrarium \
+  -workspace Terrarit.xcworkspace \
+  -scheme Terrarit \
   -destination 'platform=iOS Simulator,name=iPhone 17 Pro' \
   test
 ```

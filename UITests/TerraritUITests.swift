@@ -1,6 +1,6 @@
 import XCTest
 
-final class PixelTerrariumUITests: XCTestCase {
+final class TerraritUITests: XCTestCase {
     @MainActor
     func testOnboardingWateringHistoryAndDeletion() throws {
         let app = XCUIApplication()

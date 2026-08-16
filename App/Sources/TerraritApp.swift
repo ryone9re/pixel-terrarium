@@ -3,7 +3,7 @@ import SwiftUI
 import TerrariumCore
 
 @main
-struct PixelTerrariumApp: App {
+struct TerraritApp: App {
     private let modelContainer: ModelContainer
 
     init() {

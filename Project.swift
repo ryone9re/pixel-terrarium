@@ -15,7 +15,7 @@ let sharedSettings: Settings = .settings(
 )
 
 let project = Project(
-    name: "PixelTerrarium",
+    name: "Terrarit",
     organizationName: "Ryo",
     settings: sharedSettings,
     targets: [
@@ -30,13 +30,13 @@ let project = Project(
             settings: sharedSettings
         ),
         .target(
-            name: "PixelTerrariumWidget",
+            name: "TerraritWidget",
             destinations: .iOS,
             product: .appExtension,
             bundleId: "dev.ryo.pixelterrarium.widget",
             deploymentTargets: .iOS("26.0"),
             infoPlist: .extendingDefault(with: [
-                "CFBundleDisplayName": "Pixel Terrarium",
+                "CFBundleDisplayName": "Terrarit",
                 "NSExtension": [
                     "NSExtensionPointIdentifier": "com.apple.widgetkit-extension",
                 ],
@@ -48,18 +48,18 @@ let project = Project(
             settings: sharedSettings
         ),
         .target(
-            name: "PixelTerrariumApp",
+            name: "TerraritApp",
             destinations: .iOS,
             product: .app,
             bundleId: "dev.ryo.pixelterrarium",
             deploymentTargets: .iOS("26.0"),
             infoPlist: .extendingDefault(with: [
-                "CFBundleDisplayName": "Pixel Terrarium",
+                "CFBundleDisplayName": "Terrarit",
                 "UILaunchScreen": [:],
                 "UISupportedInterfaceOrientations": ["UIInterfaceOrientationPortrait"],
                 "CFBundleURLTypes": [[
                     "CFBundleURLName": "dev.ryo.pixelterrarium",
-                    "CFBundleURLSchemes": ["pixelterrarium"],
+                    "CFBundleURLSchemes": ["terrarit", "pixelterrarium"],
                 ]],
             ]),
             sources: ["App/Sources/**"],
@@ -67,7 +67,7 @@ let project = Project(
             entitlements: "App/Entitlements.plist",
             dependencies: [
                 .target(name: "TerrariumCore"),
-                .target(name: "PixelTerrariumWidget"),
+                .target(name: "TerraritWidget"),
             ],
             settings: sharedSettings
         ),
@@ -83,31 +83,31 @@ let project = Project(
             settings: sharedSettings
         ),
         .target(
-            name: "PixelTerrariumUITests",
+            name: "TerraritUITests",
             destinations: .iOS,
             product: .uiTests,
             bundleId: "dev.ryo.pixelterrarium.uitests",
             deploymentTargets: .iOS("26.0"),
             infoPlist: .default,
             sources: ["UITests/**"],
-            dependencies: [.target(name: "PixelTerrariumApp")],
+            dependencies: [.target(name: "TerraritApp")],
             settings: sharedSettings
         ),
     ],
     schemes: [
         .scheme(
-            name: "PixelTerrarium",
+            name: "Terrarit",
             shared: true,
             buildAction: .buildAction(targets: [
-                "PixelTerrariumApp",
-                "PixelTerrariumWidget",
+                "TerraritApp",
+                "TerraritWidget",
                 "TerrariumCore",
             ]),
             testAction: .targets(
-                ["TerrariumCoreTests", "PixelTerrariumUITests"],
+                ["TerrariumCoreTests", "TerraritUITests"],
                 configuration: "Debug"
             ),
-            runAction: .runAction(configuration: "Debug", executable: "PixelTerrariumApp"),
+            runAction: .runAction(configuration: "Debug", executable: "TerraritApp"),
             archiveAction: .archiveAction(configuration: "Release")
         ),
     ]

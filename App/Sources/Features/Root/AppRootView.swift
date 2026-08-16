@@ -31,7 +31,7 @@ struct AppRootView: View {
             )
         }
         .onOpenURL { url in
-            guard url.scheme == "pixelterrarium" else { return }
+            guard ["terrarit", "pixelterrarium"].contains(url.scheme) else { return }
         }
     }
 

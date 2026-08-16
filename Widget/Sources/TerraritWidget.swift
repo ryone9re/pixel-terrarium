@@ -134,7 +134,7 @@ struct TerrariumWidgetView: View {
             }
         }
         .containerBackground(for: .widget) { Color.clear }
-        .widgetURL(URL(string: "pixelterrarium://home"))
+        .widgetURL(URL(string: "terrarit://home"))
     }
 
     private var smallContent: some View {
@@ -233,14 +233,14 @@ private struct WidgetPeriodBackground: View {
 }
 
 @main
-struct PixelTerrariumWidget: Widget {
+struct TerraritWidget: Widget {
     let kind = TerrariumCore.widgetKind
 
     var body: some WidgetConfiguration {
         StaticConfiguration(kind: kind, provider: TerrariumTimelineProvider()) { entry in
             TerrariumWidgetView(entry: entry)
         }
-        .configurationDisplayName("Pixel Terrarium")
+        .configurationDisplayName("Terrarit")
         .description("育っているテラリウムを眺められます。")
         .supportedFamilies([.systemSmall, .systemMedium])
         .contentMarginsDisabled()
@@ -248,13 +248,13 @@ struct PixelTerrariumWidget: Widget {
 }
 
 #Preview("Small", as: .systemSmall) {
-    PixelTerrariumWidget()
+    TerraritWidget()
 } timeline: {
     TerrariumTimelineEntry(date: .now, snapshot: .placeholder(), artworkData: nil)
 }
 
 #Preview("Medium", as: .systemMedium) {
-    PixelTerrariumWidget()
+    TerraritWidget()
 } timeline: {
     TerrariumTimelineEntry(date: .now, snapshot: .placeholder(), artworkData: nil)
 }
