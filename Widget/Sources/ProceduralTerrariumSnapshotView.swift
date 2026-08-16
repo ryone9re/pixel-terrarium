@@ -20,6 +20,7 @@ struct ProceduralTerrariumSnapshotView: View {
             drawMoss(in: &context, geometry: geometry)
             drawBranch(in: &context, geometry: geometry)
             drawStones(in: &context, geometry: geometry)
+            drawStoneMoss(in: &context, geometry: geometry)
             drawFern(in: &context, geometry: geometry)
             drawDroplets(in: &context, geometry: geometry)
             drawAtmosphere(in: &context, geometry: geometry)
@@ -227,6 +228,35 @@ private extension ProceduralTerrariumSnapshotView {
             litFace.addLine(to: CGPoint(x: rect.minX + rect.width * 0.55, y: rect.minY + rect.height * 0.55))
             litFace.closeSubpath()
             context.fill(litFace, with: .color(.white.opacity(0.11)))
+        }
+    }
+
+    private func drawStoneMoss(in context: inout GraphicsContext, geometry: SnapshotGeometry) {
+        for (index, stone) in layout.stones.enumerated() {
+            let stagger = Float(index) * 0.025
+            let coverage = min(1, max(0, (layout.growthProgress - 0.10 - stagger) / 0.78))
+            guard coverage > 0 else { continue }
+            let center = geometry.project(xPosition: stone.xPosition, zPosition: stone.zPosition)
+            let stoneDiameter = CGFloat(stone.radius) * geometry.jarWidth * 0.62
+            let width = stoneDiameter * CGFloat(0.22 + coverage * 0.58)
+            let height = stoneDiameter * CGFloat(0.08 + coverage * 0.18)
+            let rect = CGRect(
+                x: center.x - width * 0.48,
+                y: center.y - stoneDiameter * 0.68,
+                width: width,
+                height: height
+            )
+            context.fill(
+                Path(ellipseIn: rect),
+                with: .linearGradient(
+                    Gradient(colors: [
+                        Color(red: 0.34, green: 0.60, blue: 0.09),
+                        Color(red: 0.05, green: 0.22, blue: 0.04)
+                    ]),
+                    startPoint: CGPoint(x: rect.midX, y: rect.minY),
+                    endPoint: CGPoint(x: rect.midX, y: rect.maxY)
+                )
+            )
         }
     }
 

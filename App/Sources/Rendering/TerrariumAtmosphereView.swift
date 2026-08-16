@@ -3,13 +3,14 @@ import TerrariumCore
 
 struct WaterGlintsView: View {
     let droplets: [TerrariumLayout.Droplet]
+    let yaw: Float
     let reduceMotion: Bool
     @State private var shimmering = false
 
     var body: some View {
         GeometryReader { geometry in
             let frontDroplets = droplets.enumerated().filter {
-                sin($0.element.azimuth) > 0.12
+                sin($0.element.azimuth - yaw) > 0.12
             }.prefix(10)
             ForEach(Array(frontDroplets), id: \.offset) { index, droplet in
                 DropletGlint(isSparkle: index.isMultiple(of: 5), glint: droplet.glint)
@@ -18,7 +19,9 @@ struct WaterGlintsView: View {
                         height: 6 + CGFloat(droplet.size) * 100
                     )
                     .position(
-                        x: geometry.size.width * CGFloat(0.5 + cos(droplet.azimuth) * 0.31),
+                        x: geometry.size.width * CGFloat(
+                            0.5 + cos(droplet.azimuth - yaw) * 0.31
+                        ),
                         y: geometry.size.height * CGFloat(0.14 + droplet.yRatio * 0.69)
                     )
                     .opacity(reduceMotion ? 0.62 : (shimmering == index.isMultiple(of: 2) ? 0.82 : 0.50))

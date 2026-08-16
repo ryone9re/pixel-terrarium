@@ -79,6 +79,30 @@ struct TerrariumLayoutTests {
     }
 
     @Test
+    func mossExpandsFromSparsePatchesIntoAContinuousCarpet() {
+        let seed = TerrariumLayoutGenerator.generate(seed: 42, growthPoints: 0, hydration: 70)
+        let forest = TerrariumLayoutGenerator.generate(seed: 42, growthPoints: 21, hydration: 70)
+        let seedAverageRadius = seed.mossMounds.map(\.radius).reduce(0, +)
+            / Float(seed.mossMounds.count)
+        let forestAverageRadius = forest.mossMounds.map(\.radius).reduce(0, +)
+            / Float(forest.mossMounds.count)
+
+        #expect(seed.mossMounds.count == 4)
+        #expect(forest.mossMounds.count == 42)
+        #expect(forestAverageRadius > seedAverageRadius)
+    }
+
+    @Test
+    func stonesFormACentralLandscapeCluster() {
+        let layout = TerrariumLayoutGenerator.generate(seed: 42, growthPoints: 21, hydration: 70)
+
+        #expect(layout.stones.allSatisfy {
+            let squaredDistance = $0.xPosition * $0.xPosition + $0.zPosition * $0.zPosition
+            return squaredDistance.squareRoot() < 0.62
+        })
+    }
+
+    @Test
     func matureFernSpreadsAcrossMultipleCrowns() {
         let mature = TerrariumLayoutGenerator.generate(seed: 42, growthPoints: 21, hydration: 70)
         let xPositions = mature.fernFronds.map(\.xPosition)

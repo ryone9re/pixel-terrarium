@@ -45,7 +45,11 @@ struct TerrariumSceneView: View {
             .id("\(seed)-\(growthPoints)-\(hydration)-\(period.rawValue)")
 
             if hydration >= 40 {
-                WaterGlintsView(droplets: layout.droplets, reduceMotion: reduceMotion)
+                WaterGlintsView(
+                    droplets: layout.droplets,
+                    yaw: displayedYaw,
+                    reduceMotion: reduceMotion
+                )
                     .allowsHitTesting(false)
             }
 
@@ -232,7 +236,7 @@ enum TerrariumEntityFactory {
 
 extension TerrariumEntityFactory {
     private static let terrainBaseY: Float = -0.27
-    private static let carpetBaseY: Float = -0.245
+    private static let groundSurfaceY: Float = -0.245
 
     static func makeContents(layout: TerrariumLayout, hydration: Int) -> Entity {
         let root = Entity()
@@ -266,18 +270,24 @@ extension TerrariumEntityFactory {
         sculptedSoil.position.y = terrainBaseY
         root.addChild(sculptedSoil)
 
-        let carpet = ModelEntity(
-            mesh: OrganicMeshFactory.terrain(),
-            materials: [TerrariumMaterialFactory.moss(tone: hydrated ? 2 : 1, hydrated: hydrated)]
+        addMossyEarthRim(
+            growthProgress: layout.growthProgress,
+            hydrated: hydrated,
+            to: root
         )
-        carpet.scale = SIMD3<Float>(1.20, 1, 1.34)
-        carpet.position.y = carpetBaseY
-        root.addChild(carpet)
-
-        addMossyEarthRim(hydrated: hydrated, to: root)
-        addStones(layout.stones, hydrated: hydrated, to: root)
+        addStones(
+            layout.stones,
+            growthProgress: layout.growthProgress,
+            hydrated: hydrated,
+            to: root
+        )
         addBranch(rotation: layout.branchRotation, to: root)
-        addMoss(layout.mossMounds, hydrated: hydrated, to: root)
+        addMoss(
+            layout.mossMounds,
+            growthProgress: layout.growthProgress,
+            hydrated: hydrated,
+            to: root
+        )
         addFern(layout.fernFronds, hydrated: hydrated, to: root)
         if layout.growthProgress >= 1 {
             addForestGlows(to: root)
@@ -285,11 +295,18 @@ extension TerrariumEntityFactory {
         return root
     }
 
-    private static func addMossyEarthRim(hydrated: Bool, to root: Entity) {
+    private static func addMossyEarthRim(
+        growthProgress: Float,
+        hydrated: Bool,
+        to root: Entity
+    ) {
         let moss = (0..<3).map {
             TerrariumMaterialFactory.moss(tone: $0, hydrated: hydrated)
         }
-        let clodCount = 24
+        let clodCount = Int((growthProgress * 24).rounded(.down))
+        guard clodCount > 0 else { return }
+        let horizontalScale = 0.10 + growthProgress * 0.10
+        let verticalScale = 0.055 + growthProgress * 0.195
         for index in 0..<clodCount {
             let angle = Float(index) / Float(clodCount) * .pi * 2
             let radiusVariation = 0.96 + Float(index % 4) * 0.022
@@ -298,7 +315,11 @@ extension TerrariumEntityFactory {
                 mesh: OrganicMeshFactory.mossPatch(variant: index),
                 materials: [moss[index % moss.count]]
             )
-            clod.scale = SIMD3<Float>(0.20 * widthVariation, 0.25, 0.17 * widthVariation)
+            clod.scale = SIMD3<Float>(
+                horizontalScale * widthVariation,
+                verticalScale,
+                horizontalScale * 0.85 * widthVariation
+            )
             clod.position = SIMD3<Float>(
                 cos(angle) * 1.12 * radiusVariation,
                 -0.35 + sin(Float(index) * 1.7) * 0.022,
@@ -314,6 +335,7 @@ extension TerrariumEntityFactory {
 
     private static func addMoss(
         _ mounds: [TerrariumLayout.MossMound],
+        growthProgress: Float,
         hydrated: Bool,
         to root: Entity
     ) {
@@ -321,21 +343,21 @@ extension TerrariumEntityFactory {
             TerrariumMaterialFactory.moss(tone: $0, hydrated: hydrated)
         }
         for (index, mound) in mounds.enumerated() {
-            let radialDistance = sqrt(
-                pow(mound.xPosition / 0.82, 2) + pow(mound.zPosition / 0.64, 2)
-            )
-            let edgeDrape = max(0, radialDistance - 0.62) * 0.22
-                + max(0, mound.zPosition - 0.34) * 0.16
             let entity = ModelEntity(
                 mesh: OrganicMeshFactory.mossPatch(variant: index),
                 materials: [materials[mound.tone]]
             )
-            entity.scale = SIMD3<Float>(mound.radius, mound.height * 0.78, mound.radius * 0.92)
+            let horizontalGrowth = 0.92 + growthProgress * 0.38
+            let verticalScale = max(0.026, mound.height * 0.42)
+            entity.scale = SIMD3<Float>(
+                mound.radius * horizontalGrowth,
+                verticalScale,
+                mound.radius * horizontalGrowth * 0.94
+            )
             entity.position = SIMD3<Float>(
                 mound.xPosition,
                 surfaceY(xPosition: mound.xPosition, zPosition: mound.zPosition)
-                    + mound.height * 0.42
-                    - edgeDrape,
+                    + verticalScale * 0.68,
                 mound.zPosition
             )
             entity.orientation = simd_quatf(angle: mound.rotation, axis: SIMD3<Float>(0, 1, 0))
@@ -345,6 +367,7 @@ extension TerrariumEntityFactory {
 
     private static func addStones(
         _ stones: [TerrariumLayout.Stone],
+        growthProgress: Float,
         hydrated: Bool,
         to root: Entity
     ) {
@@ -352,13 +375,23 @@ extension TerrariumEntityFactory {
             let material = TerrariumMaterialFactory.stone(tone: stone.tone, hydrated: hydrated)
             let entity = ModelEntity(mesh: OrganicMeshFactory.stone(variant: index), materials: [material])
             entity.scale = SIMD3<Float>(stone.radius, stone.height, stone.radius * 0.82)
-            entity.position = SIMD3<Float>(
+            let stonePosition = SIMD3<Float>(
                 stone.xPosition,
                 surfaceY(xPosition: stone.xPosition, zPosition: stone.zPosition) + stone.height * 0.42,
                 stone.zPosition
             )
+            entity.position = stonePosition
             entity.orientation = simd_quatf(angle: stone.rotation, axis: SIMD3<Float>(0, 1, 0))
             root.addChild(entity)
+            for moss in StoneMossFactory.makeEntities(
+                stone: stone,
+                position: stonePosition,
+                index: index,
+                growthProgress: growthProgress,
+                hydrated: hydrated
+            ) {
+                root.addChild(moss)
+            }
         }
     }
 
@@ -436,7 +469,7 @@ extension TerrariumEntityFactory {
     }
 
     private static func surfaceY(xPosition: Float, zPosition: Float) -> Float {
-        carpetBaseY + OrganicMeshFactory.terrainHeight(
+        groundSurfaceY + OrganicMeshFactory.terrainHeight(
             xPosition: xPosition,
             zPosition: zPosition
         )

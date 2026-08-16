@@ -81,12 +81,12 @@ public enum TerrariumLayoutGenerator {
         random: inout SplitMix64
     ) -> [TerrariumLayout.MossMound] {
         let baseAnchors: [(Float, Float)] = [
-            (-0.68, -0.30), (-0.42, -0.38), (-0.12, -0.42), (0.20, -0.40),
-            (0.52, -0.30), (-0.72, 0.02), (-0.43, 0.08), (-0.15, 0.02),
-            (0.12, 0.10), (0.42, 0.02), (0.70, 0.08), (-0.56, 0.40),
-            (-0.26, 0.48), (0.04, 0.46), (0.34, 0.43), (0.60, 0.36),
-            (-0.64, 0.50), (-0.34, 0.58), (0.00, 0.60), (0.34, 0.58),
-            (0.62, -0.52)
+            (-0.22, 0.14), (0.30, -0.12), (-0.58, -0.28), (0.61, 0.27),
+            (-0.14, -0.56), (0.18, 0.58), (-0.84, 0.04), (0.86, -0.06),
+            (-0.56, 0.56), (0.54, -0.58), (-0.94, -0.43), (0.95, 0.44),
+            (-0.40, -0.78), (0.42, 0.78), (-0.76, 0.34), (0.78, -0.36),
+            (-0.10, 0.84), (0.08, -0.84), (-1.00, 0.52), (1.00, -0.50),
+            (-0.72, -0.68), (0.70, 0.68), (-0.96, -0.02), (0.98, 0.02)
         ]
         let anchors = baseAnchors.map { xPosition, zPosition in
             (
@@ -94,38 +94,29 @@ public enum TerrariumLayoutGenerator {
                 zPosition + random.range(-0.08...0.08)
             )
         }
-        // Each entry becomes a multi-lobed cushion in RealityKit. Dense anchor
-        // coverage fills gaps while the shared mesh supplies fine moss detail
-        // without turning every tiny tuft into a separate entity.
-        let mossCount = min(42, 10 + stage.rawValue * 5 + growthPoints / 7)
+        // Low patches expand and overlap across the soil as growth advances.
+        let mossCount = min(42, 4 + stage.rawValue * 6 + growthPoints / 5)
         return (0..<mossCount).map { index in
             let anchor = anchors[index % anchors.count]
             let angle = random.range(0...(Float.pi * 2))
-            let scatter = random.range(0.015...0.16) * (index < anchors.count ? 0.18 : 1)
+            let scatter = random.range(0.015...0.14) * (index < anchors.count ? 0.15 : 1)
             let layerScale: Float = if index < anchors.count {
                 1
             } else if index < anchors.count * 2 {
-                0.78
+                0.74
             } else {
-                0.62
+                0.58
             }
-            let heightScale: Float = index < anchors.count * 2 ? 1 : 1.18
-            let foregroundScale = 1 + max(0, anchor.1) * 0.35
-            let foregroundCoverage = 1 + max(0, anchor.1) * 0.22
-            let radius = random.range(0.145...0.235)
-                * (0.92 + progress * 0.18)
+            let radius = random.range(0.18...0.28)
+                * (0.55 + progress * 0.75)
                 * layerScale
-                * foregroundCoverage
             let toneRoll = Int(random.next() % 5)
             let tone = [0, 1, 2, 2, 2][toneRoll]
             return TerrariumLayout.MossMound(
-                xPosition: clamp(anchor.0 + cos(angle) * scatter, to: -0.82...0.82),
-                zPosition: clamp(anchor.1 + sin(angle) * scatter * 0.72, to: -0.64...0.64),
+                xPosition: clamp(anchor.0 + cos(angle) * scatter, to: -1.06...1.06),
+                zPosition: clamp(anchor.1 + sin(angle) * scatter * 0.72, to: -0.90...0.90),
                 radius: radius,
-                height: random.range(0.13...0.30)
-                    * (0.84 + progress * 0.30)
-                    * heightScale
-                    * foregroundScale,
+                height: random.range(0.055...0.11) * (0.64 + progress * 0.48),
                 tone: tone,
                 rotation: random.range(0...(Float.pi * 2))
             )
@@ -134,15 +125,15 @@ public enum TerrariumLayoutGenerator {
 
     private static func makeStones(random: inout SplitMix64) -> [TerrariumLayout.Stone] {
         let stonePositions: [(Float, Float)] = [
-            (-0.40, 0.04), (0.59, -0.15), (0.39, 0.43), (-0.69, 0.39),
-            (0.05, 0.58), (-0.58, 0.50)
+            (-0.24, 0.03), (0.24, -0.08), (0.05, 0.27), (-0.34, 0.30),
+            (0.36, 0.23), (-0.05, -0.30)
         ]
         return stonePositions.enumerated().map { index, position in
             TerrariumLayout.Stone(
-                xPosition: position.0 + random.range(-0.10...0.10),
-                zPosition: position.1 + random.range(-0.08...0.08),
-                radius: index == 0 ? random.range(0.35...0.43) : random.range(0.14...0.22),
-                height: index == 0 ? random.range(0.28...0.36) : random.range(0.10...0.18),
+                xPosition: position.0 + random.range(-0.055...0.055),
+                zPosition: position.1 + random.range(-0.045...0.045),
+                radius: index == 0 ? random.range(0.34...0.41) : random.range(0.17...0.25),
+                height: index == 0 ? random.range(0.29...0.36) : random.range(0.13...0.22),
                 rotation: random.range(0...(Float.pi * 2)),
                 tone: index % 3
             )
