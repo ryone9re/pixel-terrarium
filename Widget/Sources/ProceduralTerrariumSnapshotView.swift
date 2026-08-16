@@ -238,25 +238,29 @@ private extension ProceduralTerrariumSnapshotView {
             guard coverage > 0 else { continue }
             let center = geometry.project(xPosition: stone.xPosition, zPosition: stone.zPosition)
             let stoneDiameter = CGFloat(stone.radius) * geometry.jarWidth * 0.62
-            let width = stoneDiameter * CGFloat(0.22 + coverage * 0.58)
-            let height = stoneDiameter * CGFloat(0.08 + coverage * 0.18)
             let rect = CGRect(
-                x: center.x - width * 0.48,
-                y: center.y - stoneDiameter * 0.68,
-                width: width,
-                height: height
+                x: center.x - stoneDiameter / 2, y: center.y - stoneDiameter * 0.58,
+                width: stoneDiameter, height: stoneDiameter * 0.72
             )
-            context.fill(
-                Path(ellipseIn: rect),
-                with: .linearGradient(
-                    Gradient(colors: [
-                        Color(red: 0.34, green: 0.60, blue: 0.09),
-                        Color(red: 0.05, green: 0.22, blue: 0.04)
-                    ]),
-                    startPoint: CGPoint(x: rect.midX, y: rect.minY),
-                    endPoint: CGPoint(x: rect.midX, y: rect.maxY)
+            let stonePath = facetedStonePath(in: rect, rotation: stone.rotation)
+            let mossRect = CGRect(
+                x: rect.minX, y: rect.minY,
+                width: rect.width, height: rect.height * CGFloat(0.22 + coverage * 0.52)
+            )
+            context.drawLayer { layer in
+                layer.clip(to: stonePath)
+                layer.fill(
+                    Path(mossRect),
+                    with: .linearGradient(
+                        Gradient(colors: [
+                            Color(red: 0.34, green: 0.60, blue: 0.09),
+                            Color(red: 0.05, green: 0.22, blue: 0.04)
+                        ]),
+                        startPoint: CGPoint(x: mossRect.midX, y: mossRect.minY),
+                        endPoint: CGPoint(x: mossRect.midX, y: mossRect.maxY)
+                    )
                 )
-            )
+            }
         }
     }
 

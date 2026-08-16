@@ -3,7 +3,6 @@ import RealityKit
 @MainActor
 enum OrganicMeshFactory {
     private static var mossPatchCache: [Int: MeshResource] = [:]
-    private static var stoneCache: [Int: MeshResource] = [:]
     private static var fernCache: [Int: MeshResource] = [:]
     private static var terrainCache: MeshResource?
     private static var driftwoodCache: MeshResource?
@@ -46,15 +45,7 @@ enum OrganicMeshFactory {
     }
 
     static func stone(variant: Int) -> MeshResource {
-        let key = variant % 4
-        if let cached = stoneCache[key] {
-            return cached
-        }
-        var builder = MeshBuilder()
-        builder.appendFacetedRock(variant: key)
-        let mesh = builder.makeMesh(name: "Stone-\(key)")
-        stoneCache[key] = mesh
-        return mesh
+        FacetedRockMeshFactory.stone(variant: variant)
     }
 
     // swiftlint:disable:next function_body_length
@@ -312,80 +303,6 @@ private struct MeshBuilder {
         }
     }
 
-    mutating func appendFacetedRock(variant: Int) {
-        let segments = 7 + variant % 2
-        let ringHeights: [Float] = [-0.62, -0.24, 0.22, 0.58]
-        let ringRadii: [Float] = [0.72, 1.00, 0.88, 0.54]
-        var rings: [[SIMD3<Float>]] = []
-
-        for ringIndex in ringHeights.indices {
-            let angleOffset = Float(ringIndex % 2) * 0.16 + Float(variant) * 0.11
-            let ring = (0..<segments).map { segment -> SIMD3<Float> in
-                let angle = Float(segment) / Float(segments) * .pi * 2 + angleOffset
-                let radiusNoise = radialNoise(
-                    angle: angle,
-                    ring: ringIndex + 2,
-                    variant: variant + 31,
-                    amount: 0.14
-                )
-                let heightNoise = sin(angle * 2.7 + Float(variant) * 1.3) * 0.045
-                let radius = ringRadii[ringIndex] * radiusNoise
-                return SIMD3<Float>(
-                    cos(angle) * radius + ringHeights[ringIndex] * 0.055,
-                    ringHeights[ringIndex] + heightNoise,
-                    sin(angle) * radius * (0.86 + Float(variant % 3) * 0.035)
-                )
-            }
-            rings.append(ring)
-        }
-
-        let bottom = SIMD3<Float>(-0.08, -0.68, 0.04)
-        let top = SIMD3<Float>(0.10 - Float(variant) * 0.025, 0.66, -0.06)
-        for segment in 0..<segments {
-            let next = (segment + 1) % segments
-            appendFacetedTriangle(bottom, rings[0][segment], rings[0][next])
-            appendFacetedTriangle(rings[3][segment], top, rings[3][next])
-        }
-
-        for ringIndex in 0..<(rings.count - 1) {
-            for segment in 0..<segments {
-                let next = (segment + 1) % segments
-                let lower = rings[ringIndex][segment]
-                let lowerNext = rings[ringIndex][next]
-                let upper = rings[ringIndex + 1][segment]
-                let upperNext = rings[ringIndex + 1][next]
-                if (segment + ringIndex + variant).isMultiple(of: 2) {
-                    appendFacetedTriangle(lower, upper, lowerNext)
-                    appendFacetedTriangle(lowerNext, upper, upperNext)
-                } else {
-                    appendFacetedTriangle(lower, upper, upperNext)
-                    appendFacetedTriangle(lower, upperNext, lowerNext)
-                }
-            }
-        }
-    }
-
-    private mutating func appendFacetedTriangle(
-        _ first: SIMD3<Float>,
-        _ second: SIMD3<Float>,
-        _ third: SIMD3<Float>
-    ) {
-        let baseIndex = UInt32(positions.count)
-        var adjustedSecond = second
-        var adjustedThird = third
-        var normal = simd_normalize(simd_cross(adjustedSecond - first, adjustedThird - first))
-        let centroid = (first + adjustedSecond + adjustedThird) / 3
-        if simd_dot(normal, centroid) < 0 {
-            swap(&adjustedSecond, &adjustedThird)
-            normal = -normal
-        }
-
-        positions += [first, adjustedSecond, adjustedThird]
-        normals += Array(repeating: normal, count: 3)
-        textureCoordinates += [SIMD2<Float>(0, 1), SIMD2<Float>(0.5, 0), SIMD2<Float>(1, 1)]
-        indices += [baseIndex, baseIndex + 1, baseIndex + 2]
-    }
-
     mutating func appendTube(points: [SIMD3<Float>], radii: [Float], segments: Int) {
         guard points.count >= 2, points.count == radii.count else { return }
         let baseIndex = UInt32(positions.count)
@@ -428,7 +345,6 @@ private struct MeshBuilder {
         width: Float,
         lift: Float
     ) {
-        let baseIndex = UInt32(positions.count)
         let direction = simd_normalize(SIMD3<Float>(sign, lift, 0.11))
         let perpendicular = simd_normalize(SIMD3<Float>(-direction.y, direction.x, 0))
         let base = center + SIMD3<Float>(sign * 0.008, 0, 0)
@@ -443,17 +359,83 @@ private struct MeshBuilder {
             middle - perpendicular * width,
             shoulder - perpendicular * width * 0.58
         ]
+        let thickness = max(0.009, width * 0.42)
+        appendLeafletPrism(vertices: vertices, thickness: thickness)
+        let faceNormal = simd_normalize(simd_cross(direction, perpendicular))
+        appendTube(
+            points: [
+                base + faceNormal * thickness * 0.58,
+                middle + faceNormal * thickness * 0.64,
+                tip + faceNormal * thickness * 0.52
+            ],
+            radii: [thickness * 0.32, thickness * 0.22, thickness * 0.07],
+            segments: 5
+        )
+    }
+
+    private mutating func appendLeafletPrism(
+        vertices: [SIMD3<Float>],
+        thickness: Float
+    ) {
+        guard vertices.count == 6 else { return }
+        let lengthDirection = vertices[3] - vertices[0]
+        let widthDirection = vertices[2] - vertices[4]
+        let faceNormal = simd_normalize(simd_cross(lengthDirection, widthDirection))
+        let top = vertices.map { $0 + faceNormal * thickness * 0.5 }
+        let bottom = vertices.map { $0 - faceNormal * thickness * 0.5 }
+        appendLeafletFace(top, normal: faceNormal, reversed: false)
+        appendLeafletFace(bottom, normal: -faceNormal, reversed: true)
+        for index in vertices.indices {
+            let next = (index + 1) % vertices.count
+            appendLeafletSide(
+                topStart: top[index],
+                topEnd: top[next],
+                bottomStart: bottom[index],
+                bottomEnd: bottom[next]
+            )
+        }
+    }
+
+    private mutating func appendLeafletFace(
+        _ vertices: [SIMD3<Float>],
+        normal: SIMD3<Float>,
+        reversed: Bool
+    ) {
+        let baseIndex = UInt32(positions.count)
         positions += vertices
-        normals += Array(repeating: SIMD3<Float>(0, 0, -1), count: 6)
+        normals += Array(repeating: normal, count: vertices.count)
         textureCoordinates += [
             SIMD2<Float>(0.5, 1), SIMD2<Float>(0.18, 0.72), SIMD2<Float>(0, 0.46),
             SIMD2<Float>(0.5, 0), SIMD2<Float>(1, 0.46), SIMD2<Float>(0.82, 0.72)
         ]
+        let faceIndices: [UInt32] = [0, 1, 2, 0, 2, 3, 0, 3, 4, 0, 4, 5]
+        for triangleStart in stride(from: 0, to: faceIndices.count, by: 3) {
+            let triangle = Array(faceIndices[triangleStart..<(triangleStart + 3)])
+            indices += reversed
+                ? [baseIndex + triangle[0], baseIndex + triangle[2], baseIndex + triangle[1]]
+                : triangle.map { baseIndex + $0 }
+        }
+    }
+
+    private mutating func appendLeafletSide(
+        topStart: SIMD3<Float>,
+        topEnd: SIMD3<Float>,
+        bottomStart: SIMD3<Float>,
+        bottomEnd: SIMD3<Float>
+    ) {
+        let baseIndex = UInt32(positions.count)
+        let edge = topEnd - topStart
+        let depth = bottomStart - topStart
+        let normal = simd_normalize(simd_cross(edge, depth))
+        positions += [topStart, topEnd, bottomStart, bottomEnd]
+        normals += Array(repeating: normal, count: 4)
+        textureCoordinates += [
+            SIMD2<Float>(0, 0), SIMD2<Float>(1, 0),
+            SIMD2<Float>(0, 1), SIMD2<Float>(1, 1)
+        ]
         indices += [
             baseIndex, baseIndex + 1, baseIndex + 2,
-            baseIndex, baseIndex + 2, baseIndex + 3,
-            baseIndex, baseIndex + 3, baseIndex + 4,
-            baseIndex, baseIndex + 4, baseIndex + 5
+            baseIndex + 1, baseIndex + 3, baseIndex + 2
         ]
     }
 
