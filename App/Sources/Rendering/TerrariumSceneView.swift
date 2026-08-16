@@ -198,7 +198,23 @@ enum TerrariumEntityFactory {
             let glassRadius = GlassClocheFactory.glassRadius(at: yPosition)
             let xPosition = droplet.xRatio * glassRadius * 0.78
             let frontDepth = sqrt(max(0.01, glassRadius * glassRadius - xPosition * xPosition))
-            entity.position = SIMD3<Float>(xPosition, yPosition, frontDepth * 0.965)
+            let surfacePosition = SIMD3<Float>(xPosition, yPosition, frontDepth)
+            let outwardNormal = GlassClocheFactory.outwardNormal(
+                at: yPosition,
+                xPosition: xPosition,
+                zPosition: frontDepth
+            )
+            let surfaceClearance = radius * entity.scale.z + 0.006
+            entity.position = surfacePosition + outwardNormal * surfaceClearance
+            let yaw = atan2(outwardNormal.x, outwardNormal.z)
+            let pitch = -asin(max(-1, min(1, outwardNormal.y)))
+            entity.orientation = simd_quatf(
+                angle: yaw,
+                axis: SIMD3<Float>(0, 1, 0)
+            ) * simd_quatf(
+                angle: pitch,
+                axis: SIMD3<Float>(1, 0, 0)
+            )
             root.addChild(entity)
         }
         return root

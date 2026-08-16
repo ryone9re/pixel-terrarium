@@ -42,6 +42,23 @@ enum GlassClocheFactory {
         return last.radius
     }
 
+    static func outwardNormal(
+        at yPosition: Float,
+        xPosition: Float,
+        zPosition: Float
+    ) -> SIMD3<Float> {
+        let sampleDistance: Float = 0.01
+        let lowerRadius = glassRadius(at: yPosition - sampleDistance)
+        let upperRadius = glassRadius(at: yPosition + sampleDistance)
+        let radiusSlope = (upperRadius - lowerRadius) / (sampleDistance * 2)
+        let radialLength = max(0.001, sqrt(xPosition * xPosition + zPosition * zPosition))
+        return simd_normalize(SIMD3<Float>(
+            xPosition / radialLength,
+            -radiusSlope,
+            zPosition / radialLength
+        ))
+    }
+
     private static func makeOrbMesh() -> MeshResource {
         let segments = 64
         var buffers = VertexBuffers()
