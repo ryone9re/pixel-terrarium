@@ -7,6 +7,19 @@
 共通のガラス外装に、軽量な有機メッシュ、PBR材質、湿潤反射、3D水滴、時間帯別照明を組み合わせ、SwiftUIとRealityKitの構成のまま実在感を高めています。
 Widgetには同じRealityKitシーンから生成した時間帯別の透過PNGを表示するため、アプリと同じテラリウムをホーム画面でも眺められます。
 
+## スクリーンショット
+
+| 昼 | 夜 |
+|:---:|:---:|
+| <img src="Docs/Screenshots/home-day.png" alt="昼のテラリウム" width="280"> | <img src="Docs/Screenshots/home-night.png" alt="夜のテラリウム" width="280"> |
+| 夜・別角度 | Widget |
+| <img src="Docs/Screenshots/home-realistic-night.png" alt="回転させた夜のテラリウム" width="280"> | <img src="Docs/Screenshots/widgets-home.png" alt="ホーム画面のWidget" width="280"> |
+
+## デモ動画
+
+- [回転と水やりを見る](Docs/Demos/terrarium-demo.mp4)
+- [夜の煌めきと別角度を見る](Docs/Demos/terrarium-realistic-demo.mp4)
+
 ## 必要環境
 
 - Xcode 26.6 / Swift 6.3.3
