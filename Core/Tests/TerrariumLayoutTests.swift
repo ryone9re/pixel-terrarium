@@ -93,6 +93,25 @@ struct TerrariumLayoutTests {
     }
 
     @Test
+    func matureMossFootprintsStayInsideTheSoilSurface() {
+        for seed in [UInt64(1), 42, 99, 2_026] {
+            let forest = TerrariumLayoutGenerator.generate(
+                seed: seed,
+                growthPoints: 21,
+                hydration: 70
+            )
+
+            #expect(forest.mossMounds.allSatisfy { mound in
+                let centerDistance = (
+                    mound.xPosition * mound.xPosition + mound.zPosition * mound.zPosition
+                ).squareRoot()
+                let renderedFootprintRadius = mound.radius * 1.66
+                return centerDistance + renderedFootprintRadius <= 1.331
+            })
+        }
+    }
+
+    @Test
     func stonesFormACentralLandscapeCluster() {
         let layout = TerrariumLayoutGenerator.generate(seed: 42, growthPoints: 21, hydration: 70)
 

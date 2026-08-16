@@ -305,12 +305,14 @@ extension TerrariumEntityFactory {
         }
         let clodCount = Int((growthProgress * 24).rounded(.down))
         guard clodCount > 0 else { return }
-        let horizontalScale = 0.10 + growthProgress * 0.10
-        let verticalScale = 0.055 + growthProgress * 0.195
+        let horizontalScale = 0.07 + growthProgress * 0.10
+        let verticalScale = 0.025 + growthProgress * 0.055
         for index in 0..<clodCount {
             let angle = Float(index) / Float(clodCount) * .pi * 2
             let radiusVariation = 0.96 + Float(index % 4) * 0.022
             let widthVariation = 0.94 + Float(index % 3) * 0.06
+            let xPosition = cos(angle) * 1.02 * radiusVariation
+            let zPosition = sin(angle) * 1.02 * radiusVariation
             let clod = ModelEntity(
                 mesh: OrganicMeshFactory.mossPatch(variant: index),
                 materials: [moss[index % moss.count]]
@@ -321,9 +323,10 @@ extension TerrariumEntityFactory {
                 horizontalScale * 0.85 * widthVariation
             )
             clod.position = SIMD3<Float>(
-                cos(angle) * 1.12 * radiusVariation,
-                -0.35 + sin(Float(index) * 1.7) * 0.022,
-                sin(angle) * 1.12 * radiusVariation
+                xPosition,
+                surfaceY(xPosition: xPosition, zPosition: zPosition)
+                    + verticalScale * 0.85,
+                zPosition
             )
             clod.orientation = simd_quatf(
                 angle: angle - .pi / 2,

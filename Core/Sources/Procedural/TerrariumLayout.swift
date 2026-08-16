@@ -47,6 +47,9 @@ public struct TerrariumLayout: Equatable, Sendable {
 }
 
 public enum TerrariumLayoutGenerator {
+    private static let mossSurfaceRadius: Float = 1.33
+    private static let matureMossFootprintMultiplier: Float = 2.18
+
     public static func generate(
         seed: UInt64,
         growthPoints: Int,
@@ -100,27 +103,57 @@ public enum TerrariumLayoutGenerator {
             let anchor = anchors[index % anchors.count]
             let angle = random.range(0...(Float.pi * 2))
             let scatter = random.range(0.015...0.14) * (index < anchors.count ? 0.15 : 1)
-            let layerScale: Float = if index < anchors.count {
-                1
-            } else if index < anchors.count * 2 {
-                0.74
-            } else {
-                0.58
-            }
-            let radius = random.range(0.18...0.28)
+            let layerScale = mossLayerScale(index: index, anchorCount: anchors.count)
+            let baseRadius = random.range(0.18...0.28)
+            let radius = baseRadius
                 * (0.55 + progress * 0.75)
                 * layerScale
+            let rawPosition = (
+                anchor.0 + cos(angle) * scatter,
+                anchor.1 + sin(angle) * scatter * 0.72
+            )
+            let position = fitMossCenterToSurface(
+                xPosition: rawPosition.0,
+                zPosition: rawPosition.1,
+                matureFootprintRadius: baseRadius
+                    * layerScale
+                    * matureMossFootprintMultiplier
+            )
             let toneRoll = Int(random.next() % 5)
             let tone = [0, 1, 2, 2, 2][toneRoll]
             return TerrariumLayout.MossMound(
-                xPosition: clamp(anchor.0 + cos(angle) * scatter, to: -1.06...1.06),
-                zPosition: clamp(anchor.1 + sin(angle) * scatter * 0.72, to: -0.90...0.90),
+                xPosition: position.0,
+                zPosition: position.1,
                 radius: radius,
                 height: random.range(0.055...0.11) * (0.64 + progress * 0.48),
                 tone: tone,
                 rotation: random.range(0...(Float.pi * 2))
             )
         }
+    }
+
+    private static func mossLayerScale(index: Int, anchorCount: Int) -> Float {
+        if index < anchorCount {
+            1
+        } else if index < anchorCount * 2 {
+            0.74
+        } else {
+            0.58
+        }
+    }
+
+    private static func fitMossCenterToSurface(
+        xPosition: Float,
+        zPosition: Float,
+        matureFootprintRadius: Float
+    ) -> (Float, Float) {
+        let distance = sqrt(xPosition * xPosition + zPosition * zPosition)
+        let maximumCenterDistance = max(0, mossSurfaceRadius - matureFootprintRadius)
+        guard distance > maximumCenterDistance, distance > 0 else {
+            return (xPosition, zPosition)
+        }
+        let scale = maximumCenterDistance / distance
+        return (xPosition * scale, zPosition * scale)
     }
 
     private static func makeStones(random: inout SplitMix64) -> [TerrariumLayout.Stone] {
@@ -195,9 +228,6 @@ public enum TerrariumLayoutGenerator {
         }
     }
 
-    private static func clamp(_ value: Float, to range: ClosedRange<Float>) -> Float {
-        min(range.upperBound, max(range.lowerBound, value))
-    }
 }
 
 private struct SplitMix64 {
