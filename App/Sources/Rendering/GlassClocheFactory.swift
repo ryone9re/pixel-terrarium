@@ -14,6 +14,8 @@ enum GlassClocheFactory {
 
     private static let orbProfile = makeOrbProfile()
     private static var dropletMeshCache: [Int: MeshResource] = [:]
+    private static var substrateMeshCache: MeshResource?
+    private static let transparentSortGroup = ModelSortGroup()
 
     static func makeGlassCloche(hydrated: Bool) -> Entity {
         let root = Entity()
@@ -24,6 +26,10 @@ enum GlassClocheFactory {
             mesh: makeOrbMesh(),
             materials: [glass]
         )
+        cloche.components.set(ModelSortGroupComponent(
+            group: transparentSortGroup,
+            order: 0
+        ))
         root.addChild(cloche)
 
         return root
@@ -58,6 +64,88 @@ enum GlassClocheFactory {
             -radiusSlope,
             zPosition / radialLength
         ))
+    }
+
+    static func configureAsCondensation(_ entity: Entity) {
+        entity.components.set(ModelSortGroupComponent(
+            group: transparentSortGroup,
+            order: 1
+        ))
+    }
+
+    // swiftlint:disable:next function_body_length
+    static func substrateMesh() -> MeshResource {
+        if let substrateMeshCache {
+            return substrateMeshCache
+        }
+
+        let bottomY: Float = -0.68
+        let topY: Float = -0.26
+        let ringCount = 7
+        let segments = 64
+        let glassInset: Float = 0.028
+        var positions: [SIMD3<Float>] = []
+        var normals: [SIMD3<Float>] = []
+        var indices: [UInt32] = []
+
+        for ring in 0...ringCount {
+            let progress = Float(ring) / Float(ringCount)
+            let yPosition = bottomY + (topY - bottomY) * progress
+            let radius = glassRadius(at: yPosition) - glassInset
+            for segment in 0..<segments {
+                let angle = Float(segment) / Float(segments) * .pi * 2
+                let position = SIMD3<Float>(
+                    cos(angle) * radius,
+                    yPosition,
+                    sin(angle) * radius
+                )
+                positions.append(position)
+                normals.append(outwardNormal(
+                    at: yPosition,
+                    xPosition: position.x,
+                    zPosition: position.z
+                ))
+            }
+        }
+
+        for ring in 0..<ringCount {
+            for segment in 0..<segments {
+                let next = (segment + 1) % segments
+                let lower = UInt32(ring * segments + segment)
+                let lowerNext = UInt32(ring * segments + next)
+                let upper = UInt32((ring + 1) * segments + segment)
+                let upperNext = UInt32((ring + 1) * segments + next)
+                indices += [lower, upper, lowerNext, lowerNext, upper, upperNext]
+            }
+        }
+
+        let topCenter = UInt32(positions.count)
+        positions.append(SIMD3<Float>(0, topY, 0))
+        normals.append(SIMD3<Float>(0, 1, 0))
+        let topRadius = glassRadius(at: topY) - glassInset
+        let topRingStart = UInt32(positions.count)
+        for segment in 0..<segments {
+            let angle = Float(segment) / Float(segments) * .pi * 2
+            positions.append(SIMD3<Float>(
+                cos(angle) * topRadius,
+                topY,
+                sin(angle) * topRadius
+            ))
+            normals.append(SIMD3<Float>(0, 1, 0))
+        }
+        for segment in 0..<segments {
+            let next = (segment + 1) % segments
+            indices += [topCenter, topRingStart + UInt32(next), topRingStart + UInt32(segment)]
+        }
+
+        let mesh = makeMesh(
+            name: "GlassFittedSubstrate",
+            positions: positions,
+            normals: normals,
+            indices: indices
+        )
+        substrateMeshCache = mesh
+        return mesh
     }
 
     // swiftlint:disable:next function_body_length

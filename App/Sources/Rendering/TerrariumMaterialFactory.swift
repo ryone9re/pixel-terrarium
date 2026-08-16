@@ -149,9 +149,9 @@ enum TerrariumMaterialFactory {
             clearcoat: 1,
             clearcoatRoughness: 0.008,
             emissiveColor: UIColor(red: 0.44, green: 0.78, blue: 1, alpha: 1),
-            emissiveIntensity: 0.01 + glint * 0.035
+            emissiveIntensity: 0.015 + glint * 0.05
         )
-        water.blending = .transparent(opacity: .init(scale: 0.16 + glint * 0.18))
+        water.blending = .transparent(opacity: .init(scale: 0.38 + glint * 0.32))
         return water
     }
 

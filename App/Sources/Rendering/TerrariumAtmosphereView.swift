@@ -8,17 +8,20 @@ struct WaterGlintsView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            ForEach(Array(droplets.prefix(8).enumerated()), id: \.offset) { index, droplet in
+            let frontDroplets = droplets.enumerated().filter {
+                sin($0.element.azimuth) > 0.12
+            }.prefix(10)
+            ForEach(Array(frontDroplets), id: \.offset) { index, droplet in
                 DropletGlint(isSparkle: index.isMultiple(of: 5), glint: droplet.glint)
                     .frame(
-                        width: 3.2 + CGFloat(droplet.size) * 48,
-                        height: 4.6 + CGFloat(droplet.size) * 78
+                        width: 4 + CGFloat(droplet.size) * 65,
+                        height: 6 + CGFloat(droplet.size) * 100
                     )
                     .position(
-                        x: geometry.size.width * CGFloat(0.5 + droplet.xRatio * 0.31),
+                        x: geometry.size.width * CGFloat(0.5 + cos(droplet.azimuth) * 0.31),
                         y: geometry.size.height * CGFloat(0.14 + droplet.yRatio * 0.69)
                     )
-                    .opacity(reduceMotion ? 0.38 : (shimmering == index.isMultiple(of: 2) ? 0.56 : 0.18))
+                    .opacity(reduceMotion ? 0.62 : (shimmering == index.isMultiple(of: 2) ? 0.82 : 0.50))
                     .animation(
                         reduceMotion
                             ? nil
@@ -42,9 +45,9 @@ private struct DropletGlint: View {
             .fill(
                 LinearGradient(
                     colors: [
-                        .white.opacity(0.30 + Double(glint) * 0.12),
-                        .cyan.opacity(0.055),
-                        .white.opacity(0.015)
+                        .white.opacity(0.45 + Double(glint) * 0.18),
+                        .cyan.opacity(0.08),
+                        .white.opacity(0.025)
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
@@ -52,7 +55,7 @@ private struct DropletGlint: View {
             )
             .overlay {
                 CondensationLensShape()
-                    .stroke(.white.opacity(0.22), lineWidth: 0.35)
+                    .stroke(.white.opacity(0.32), lineWidth: 0.45)
             }
             .overlay(alignment: .topLeading) {
                 Capsule()

@@ -33,6 +33,7 @@ public struct TerrariumLayout: Equatable, Sendable {
     public struct Droplet: Equatable, Sendable {
         public let xRatio: Float
         public let yRatio: Float
+        public let azimuth: Float
         public let size: Float
         public let glint: Float
     }
@@ -186,10 +187,17 @@ public enum TerrariumLayoutGenerator {
         random: inout SplitMix64
     ) -> [TerrariumLayout.Droplet] {
         let dropletCount = hydration >= 40 ? 21 : 6
-        return (0..<dropletCount).map { _ in
-            TerrariumLayout.Droplet(
-                xRatio: random.range(-0.82...0.82),
-                yRatio: random.range(0.16...0.86),
+        let goldenAngle = Float.pi * (3 - sqrt(5 as Float))
+        return (0..<dropletCount).map { index in
+            let xRatio = random.range(-0.82...0.82)
+            let yRatio = random.range(0.16...0.86)
+            let rawAzimuth = (Float(index) * goldenAngle + random.range(-0.16...0.16))
+                .truncatingRemainder(dividingBy: .pi * 2)
+            let azimuth = rawAzimuth < 0 ? rawAzimuth + .pi * 2 : rawAzimuth
+            return TerrariumLayout.Droplet(
+                xRatio: xRatio,
+                yRatio: yRatio,
+                azimuth: azimuth,
                 size: random.range(0.018...0.045),
                 glint: random.range(0.35...1)
             )

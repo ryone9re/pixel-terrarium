@@ -44,7 +44,7 @@ struct TerrariumSceneView: View {
             }
             .id("\(seed)-\(growthPoints)-\(hydration)-\(period.rawValue)")
 
-            if hydration >= 40 && (period == .evening || period == .night) {
+            if hydration >= 40 {
                 WaterGlintsView(droplets: layout.droplets, reduceMotion: reduceMotion)
                     .allowsHitTesting(false)
             }
@@ -189,13 +189,14 @@ enum TerrariumEntityFactory {
         root.name = "GlassDroplets"
         guard hydrated else { return root }
 
-        for (index, droplet) in droplets.prefix(16).enumerated() {
-            let radius = max(0.013, droplet.size * 0.62)
+        for (index, droplet) in droplets.enumerated() {
+            let radius = max(0.016, droplet.size * 0.68)
             let entity = ModelEntity(
                 mesh: GlassClocheFactory.condensationDropletMesh(variant: index),
                 materials: [TerrariumMaterialFactory.droplet(glint: droplet.glint)]
             )
             entity.name = "CondensationDroplet-\(index)"
+            GlassClocheFactory.configureAsCondensation(entity)
             entity.scale = SIMD3<Float>(
                 radius * (0.70 + Float(index % 3) * 0.04),
                 radius * (1.18 + Float(index % 4) * 0.10),
@@ -203,13 +204,13 @@ enum TerrariumEntityFactory {
             )
             let yPosition = -0.45 + droplet.yRatio * 2.42
             let glassRadius = GlassClocheFactory.glassRadius(at: yPosition)
-            let xPosition = droplet.xRatio * glassRadius * 0.78
-            let frontDepth = sqrt(max(0.01, glassRadius * glassRadius - xPosition * xPosition))
-            let surfacePosition = SIMD3<Float>(xPosition, yPosition, frontDepth)
+            let xPosition = cos(droplet.azimuth) * glassRadius
+            let zPosition = sin(droplet.azimuth) * glassRadius
+            let surfacePosition = SIMD3<Float>(xPosition, yPosition, zPosition)
             let outwardNormal = GlassClocheFactory.outwardNormal(
                 at: yPosition,
                 xPosition: xPosition,
-                zPosition: frontDepth
+                zPosition: zPosition
             )
             let surfaceInset = entity.scale.z + 0.010
             entity.position = surfacePosition - outwardNormal * surfaceInset
@@ -252,16 +253,16 @@ extension TerrariumEntityFactory {
         root.addChild(charcoal)
 
         let soil = ModelEntity(
-            mesh: .generateCylinder(height: 0.39, radius: 0.88),
+            mesh: GlassClocheFactory.substrateMesh(),
             materials: [TerrariumMaterialFactory.soil(hydrated: hydrated)]
         )
-        soil.position.y = -0.485
         root.addChild(soil)
 
         let sculptedSoil = ModelEntity(
             mesh: OrganicMeshFactory.terrain(),
             materials: [TerrariumMaterialFactory.soil(hydrated: hydrated)]
         )
+        sculptedSoil.scale = SIMD3<Float>(1.34, 1, 1.48)
         sculptedSoil.position.y = terrainBaseY
         root.addChild(sculptedSoil)
 
@@ -269,7 +270,7 @@ extension TerrariumEntityFactory {
             mesh: OrganicMeshFactory.terrain(),
             materials: [TerrariumMaterialFactory.moss(tone: hydrated ? 2 : 1, hydrated: hydrated)]
         )
-        carpet.scale = SIMD3<Float>(0.975, 1, 0.975)
+        carpet.scale = SIMD3<Float>(1.20, 1, 1.34)
         carpet.position.y = carpetBaseY
         root.addChild(carpet)
 
@@ -288,7 +289,7 @@ extension TerrariumEntityFactory {
         let moss = (0..<3).map {
             TerrariumMaterialFactory.moss(tone: $0, hydrated: hydrated)
         }
-        let clodCount = 20
+        let clodCount = 24
         for index in 0..<clodCount {
             let angle = Float(index) / Float(clodCount) * .pi * 2
             let radiusVariation = 0.96 + Float(index % 4) * 0.022
@@ -299,9 +300,9 @@ extension TerrariumEntityFactory {
             )
             clod.scale = SIMD3<Float>(0.20 * widthVariation, 0.25, 0.17 * widthVariation)
             clod.position = SIMD3<Float>(
-                cos(angle) * 0.91 * radiusVariation,
+                cos(angle) * 1.12 * radiusVariation,
                 -0.35 + sin(Float(index) * 1.7) * 0.022,
-                sin(angle) * 0.91 * radiusVariation
+                sin(angle) * 1.12 * radiusVariation
             )
             clod.orientation = simd_quatf(
                 angle: angle - .pi / 2,

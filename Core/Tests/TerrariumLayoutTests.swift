@@ -40,6 +40,20 @@ struct TerrariumLayoutTests {
     }
 
     @Test
+    func hydratedDropletsWrapAroundTheGlass() {
+        let wet = TerrariumLayoutGenerator.generate(seed: 7, growthPoints: 10, hydration: 70)
+        let quadrants = (0..<4).map { quadrant in
+            let lowerBound = Float(quadrant) * .pi / 2
+            let upperBound = Float(quadrant + 1) * .pi / 2
+            return wet.droplets.count {
+                $0.azimuth >= lowerBound && $0.azimuth < upperBound
+            }
+        }
+
+        #expect(quadrants.allSatisfy { $0 > 0 })
+    }
+
+    @Test
     func matureLayoutStaysWithinRuntimeEntityBudget() {
         let mature = TerrariumLayoutGenerator.generate(seed: 42, growthPoints: 100, hydration: 70)
 
