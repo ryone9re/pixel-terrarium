@@ -32,6 +32,10 @@ enum TerrariumWidgetArtworkRenderer {
         )
         guard !Task.isCancelled else { return nil }
         let anchor = AnchorEntity(world: .zero)
+        let camera = TerrariumSceneFactory.makeCamera()
+        anchor.transform = Transform(
+            matrix: camera.transformMatrix(relativeTo: nil).inverse
+        )
         anchor.addChild(root)
         for light in TerrariumEntityFactory.makeLights(period: period) {
             anchor.addChild(light)

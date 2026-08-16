@@ -26,6 +26,8 @@ struct TerrariumSceneView: View {
     var body: some View {
         ZStack {
             RealityView { content in
+                content.camera = .virtual
+                content.add(TerrariumSceneFactory.makeCamera())
                 let root = await TerrariumSceneFactory.makeRoot(
                     layout: layout,
                     hydration: hydration
@@ -223,6 +225,8 @@ enum TerrariumEntityFactory {
 }
 
 extension TerrariumEntityFactory {
+    private static let terrainLift: Float = 0.16
+
     static func makeContents(layout: TerrariumLayout, hydration: Int) -> Entity {
         let root = Entity()
         let hydrated = hydration >= 40
@@ -235,24 +239,24 @@ extension TerrariumEntityFactory {
         root.addChild(drainage)
 
         let charcoal = ModelEntity(
-            mesh: .generateCylinder(height: 0.07, radius: 0.68),
+            mesh: .generateCylinder(height: 0.12, radius: 0.68),
             materials: [TerrariumMaterialFactory.charcoal()]
         )
-        charcoal.position.y = -0.80
+        charcoal.position.y = -0.77
         root.addChild(charcoal)
 
         let soil = ModelEntity(
-            mesh: .generateCylinder(height: 0.09, radius: 0.74),
+            mesh: .generateCylinder(height: 0.20, radius: 0.74),
             materials: [TerrariumMaterialFactory.soil(hydrated: hydrated)]
         )
-        soil.position.y = -0.69
+        soil.position.y = -0.61
         root.addChild(soil)
 
         let sculptedSoil = ModelEntity(
             mesh: OrganicMeshFactory.terrain(),
             materials: [TerrariumMaterialFactory.soil(hydrated: hydrated)]
         )
-        sculptedSoil.position.y = -0.61
+        sculptedSoil.position.y = -0.61 + terrainLift
         root.addChild(sculptedSoil)
 
         let carpet = ModelEntity(
@@ -260,7 +264,7 @@ extension TerrariumEntityFactory {
             materials: [TerrariumMaterialFactory.moss(tone: hydrated ? 2 : 1, hydrated: hydrated)]
         )
         carpet.scale = SIMD3<Float>(0.975, 1, 0.975)
-        carpet.position.y = -0.585
+        carpet.position.y = -0.585 + terrainLift
         root.addChild(carpet)
 
         addMossyEarthRim(hydrated: hydrated, to: root)
@@ -287,10 +291,10 @@ extension TerrariumEntityFactory {
                 mesh: OrganicMeshFactory.mossPatch(variant: index),
                 materials: [moss[index % moss.count]]
             )
-            clod.scale = SIMD3<Float>(0.22 * widthVariation, 0.23, 0.18 * widthVariation)
+            clod.scale = SIMD3<Float>(0.22 * widthVariation, 0.32, 0.18 * widthVariation)
             clod.position = SIMD3<Float>(
                 cos(angle) * 0.77 * radiusVariation,
-                -0.76 + sin(Float(index) * 1.7) * 0.025,
+                -0.68 + sin(Float(index) * 1.7) * 0.025,
                 sin(angle) * 0.65 * radiusVariation
             )
             clod.orientation = simd_quatf(
@@ -424,6 +428,7 @@ extension TerrariumEntityFactory {
     }
 
     private static func surfaceY(xPosition: Float, zPosition: Float) -> Float {
-        -0.585 + OrganicMeshFactory.terrainHeight(xPosition: xPosition, zPosition: zPosition)
+        -0.585 + terrainLift
+            + OrganicMeshFactory.terrainHeight(xPosition: xPosition, zPosition: zPosition)
     }
 }

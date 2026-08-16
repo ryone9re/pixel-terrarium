@@ -3,6 +3,22 @@ import TerrariumCore
 
 @MainActor
 enum TerrariumSceneFactory {
+    static func makeCamera() -> Entity {
+        let camera = Entity()
+        camera.name = "terrarium-camera"
+        camera.components.set(PerspectiveCameraComponent(
+            near: 0.01,
+            far: 20,
+            fieldOfViewInDegrees: 60
+        ))
+        camera.look(
+            at: SIMD3<Float>(0, -0.15, -2.62),
+            from: SIMD3<Float>(0, 0.42, 1.25),
+            relativeTo: nil
+        )
+        return camera
+    }
+
     static func makeRoot(layout: TerrariumLayout, hydration: Int) async -> Entity {
         await TerrariumMaterialFactory.prepareTextures()
         let root = Entity()
