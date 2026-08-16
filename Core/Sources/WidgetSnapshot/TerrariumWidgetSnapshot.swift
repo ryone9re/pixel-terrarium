@@ -91,7 +91,7 @@ public struct WidgetSnapshotStore: Sendable {
 
 public struct TerrariumWidgetPublication: Codable, Equatable, Sendable {
     public static let currentSchemaVersion = 1
-    public static let currentRendererVersion = 7
+    public static let currentRendererVersion = 8
 
     public let schemaVersion: Int
     public let rendererVersion: Int

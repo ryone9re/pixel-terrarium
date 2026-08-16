@@ -29,9 +29,9 @@ enum TerrariumMaterialFactory {
     static func soil(hydrated: Bool) -> PhysicallyBasedMaterial {
         material(
             color: UIColor(
-                red: hydrated ? 0.075 : 0.15,
-                green: hydrated ? 0.045 : 0.07,
-                blue: 0.022,
+                red: hydrated ? 0.115 : 0.17,
+                green: hydrated ? 0.065 : 0.08,
+                blue: hydrated ? 0.028 : 0.024,
                 alpha: 1
             ),
             roughness: hydrated ? 0.72 : 0.96,
@@ -75,11 +75,11 @@ enum TerrariumMaterialFactory {
             )
             result.emissiveColor = .init(color: UIColor(
                 red: hydrated ? 0.08 : 0.05,
-                green: hydrated ? 0.24 : 0.13,
+                green: hydrated ? 0.24 + CGFloat(tone) * 0.04 : 0.13,
                 blue: 0.025,
                 alpha: 1
             ))
-            result.emissiveIntensity = hydrated ? 0.055 : 0.022
+            result.emissiveIntensity = hydrated ? 0.055 + Float(tone) * 0.020 : 0.022
         }
         return result
     }

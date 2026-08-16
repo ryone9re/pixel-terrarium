@@ -150,28 +150,28 @@ enum TerrariumEntityFactory {
         let bronze = TerrariumMaterialFactory.bronze()
 
         let body = ModelEntity(
-            mesh: .generateCylinder(height: 0.17, radius: 1.14),
+            mesh: .generateCylinder(height: 0.14, radius: 1.04),
             materials: [blackenedMetal]
         )
-        body.position.y = -1.04
+        body.position.y = -1.03
         root.addChild(body)
 
         let topSupport = ModelEntity(
-            mesh: .generateCylinder(height: 0.065, radius: 1.05),
+            mesh: .generateCylinder(height: 0.055, radius: 0.91),
             materials: [blackenedMetal]
         )
         topSupport.position.y = -0.91
         root.addChild(topSupport)
 
         let upperTrim = ModelEntity(
-            mesh: .generateCylinder(height: 0.022, radius: 1.09),
+            mesh: .generateCylinder(height: 0.022, radius: 0.96),
             materials: [bronze]
         )
         upperTrim.position.y = -0.885
         root.addChild(upperTrim)
 
         let lowerTrim = ModelEntity(
-            mesh: .generateCylinder(height: 0.026, radius: 1.17),
+            mesh: .generateCylinder(height: 0.024, radius: 1.06),
             materials: [bronze]
         )
         lowerTrim.position.y = -1.135
@@ -212,24 +212,24 @@ extension TerrariumEntityFactory {
         let hydrated = hydration >= 40
 
         let drainage = ModelEntity(
-            mesh: .generateCylinder(height: 0.14, radius: 0.90),
+            mesh: .generateCylinder(height: 0.12, radius: 0.65),
             materials: [TerrariumMaterialFactory.gravel()]
         )
-        drainage.position.y = -0.90
+        drainage.position.y = -0.89
         root.addChild(drainage)
 
         let charcoal = ModelEntity(
-            mesh: .generateCylinder(height: 0.075, radius: 0.89),
+            mesh: .generateCylinder(height: 0.07, radius: 0.68),
             materials: [TerrariumMaterialFactory.charcoal()]
         )
-        charcoal.position.y = -0.795
+        charcoal.position.y = -0.80
         root.addChild(charcoal)
 
         let soil = ModelEntity(
-            mesh: .generateCylinder(height: 0.11, radius: 0.87),
+            mesh: .generateCylinder(height: 0.09, radius: 0.74),
             materials: [TerrariumMaterialFactory.soil(hydrated: hydrated)]
         )
-        soil.position.y = -0.675
+        soil.position.y = -0.69
         root.addChild(soil)
 
         let sculptedSoil = ModelEntity(
@@ -241,12 +241,13 @@ extension TerrariumEntityFactory {
 
         let carpet = ModelEntity(
             mesh: OrganicMeshFactory.terrain(),
-            materials: [TerrariumMaterialFactory.moss(tone: hydrated ? 1 : 0, hydrated: hydrated)]
+            materials: [TerrariumMaterialFactory.moss(tone: hydrated ? 2 : 1, hydrated: hydrated)]
         )
         carpet.scale = SIMD3<Float>(0.975, 1, 0.975)
         carpet.position.y = -0.585
         root.addChild(carpet)
 
+        addMossyEarthRim(hydrated: hydrated, to: root)
         addStones(layout.stones, hydrated: hydrated, to: root)
         addBranch(rotation: layout.branchRotation, to: root)
         addMoss(layout.mossMounds, hydrated: hydrated, to: root)
@@ -257,21 +258,57 @@ extension TerrariumEntityFactory {
         return root
     }
 
+    private static func addMossyEarthRim(hydrated: Bool, to root: Entity) {
+        let moss = (0..<3).map {
+            TerrariumMaterialFactory.moss(tone: $0, hydrated: hydrated)
+        }
+        let clodCount = 16
+        for index in 0..<clodCount {
+            let angle = Float(index) / Float(clodCount) * .pi * 2
+            let radiusVariation = 0.94 + Float(index % 4) * 0.025
+            let widthVariation = 0.94 + Float(index % 3) * 0.06
+            let clod = ModelEntity(
+                mesh: OrganicMeshFactory.mossPatch(variant: index),
+                materials: [moss[index % moss.count]]
+            )
+            clod.scale = SIMD3<Float>(0.22 * widthVariation, 0.23, 0.18 * widthVariation)
+            clod.position = SIMD3<Float>(
+                cos(angle) * 0.77 * radiusVariation,
+                -0.76 + sin(Float(index) * 1.7) * 0.025,
+                sin(angle) * 0.65 * radiusVariation
+            )
+            clod.orientation = simd_quatf(
+                angle: angle - .pi / 2,
+                axis: SIMD3<Float>(0, 1, 0)
+            )
+            root.addChild(clod)
+        }
+    }
+
     private static func addMoss(
         _ mounds: [TerrariumLayout.MossMound],
         hydrated: Bool,
         to root: Entity
     ) {
+        let materials = (0..<3).map {
+            TerrariumMaterialFactory.moss(tone: $0, hydrated: hydrated)
+        }
         for (index, mound) in mounds.enumerated() {
-            let material = TerrariumMaterialFactory.moss(tone: mound.tone, hydrated: hydrated)
+            let radialDistance = sqrt(
+                pow(mound.xPosition / 0.82, 2) + pow(mound.zPosition / 0.64, 2)
+            )
+            let edgeDrape = max(0, radialDistance - 0.62) * 0.22
+                + max(0, mound.zPosition - 0.34) * 0.16
             let entity = ModelEntity(
                 mesh: OrganicMeshFactory.mossPatch(variant: index),
-                materials: [material]
+                materials: [materials[mound.tone]]
             )
-            entity.scale = SIMD3<Float>(mound.radius, mound.height * 0.62, mound.radius * 0.92)
+            entity.scale = SIMD3<Float>(mound.radius, mound.height * 0.78, mound.radius * 0.92)
             entity.position = SIMD3<Float>(
                 mound.xPosition,
-                surfaceY(xPosition: mound.xPosition, zPosition: mound.zPosition) + mound.height * 0.30,
+                surfaceY(xPosition: mound.xPosition, zPosition: mound.zPosition)
+                    + mound.height * 0.42
+                    - edgeDrape,
                 mound.zPosition
             )
             entity.orientation = simd_quatf(angle: mound.rotation, axis: SIMD3<Float>(0, 1, 0))

@@ -21,7 +21,12 @@ enum OrganicMeshFactory {
             (SIMD3<Float>(-0.48, 0.08, 0.08), SIMD3<Float>(0.63, 0.58, 0.58)),
             (SIMD3<Float>(0.43, 0.11, -0.10), SIMD3<Float>(0.58, 0.62, 0.54)),
             (SIMD3<Float>(-0.06, 0.13, 0.43), SIMD3<Float>(0.60, 0.55, 0.52)),
-            (SIMD3<Float>(0.12, 0.16, -0.39), SIMD3<Float>(0.54, 0.52, 0.50))
+            (SIMD3<Float>(0.12, 0.16, -0.39), SIMD3<Float>(0.54, 0.52, 0.50)),
+            (SIMD3<Float>(-0.40, 0.17, -0.34), SIMD3<Float>(0.43, 0.40, 0.42)),
+            (SIMD3<Float>(0.36, 0.18, 0.30), SIMD3<Float>(0.44, 0.43, 0.40)),
+            (SIMD3<Float>(-0.05, 0.25, 0.02), SIMD3<Float>(0.48, 0.42, 0.45)),
+            (SIMD3<Float>(0.52, 0.07, 0.22), SIMD3<Float>(0.36, 0.34, 0.35)),
+            (SIMD3<Float>(-0.52, 0.06, -0.18), SIMD3<Float>(0.35, 0.32, 0.34))
         ]
         for (index, lobe) in lobes.enumerated() {
             let offset = SIMD3<Float>(

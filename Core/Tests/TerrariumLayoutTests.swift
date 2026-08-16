@@ -43,10 +43,25 @@ struct TerrariumLayoutTests {
     func matureLayoutStaysWithinRuntimeEntityBudget() {
         let mature = TerrariumLayoutGenerator.generate(seed: 42, growthPoints: 100, hydration: 70)
 
-        #expect(mature.mossMounds.count <= 22)
+        #expect(mature.mossMounds.count == 42)
         #expect(mature.fernFronds.count <= 6)
         #expect(mature.fernFronds.allSatisfy { (5...15).contains($0.leafletPairs) })
         #expect(mature.fernFronds.contains { $0.leafletPairs >= 13 })
+    }
+
+    @Test
+    func forestMossDenselyCoversEveryQuadrant() {
+        let forest = TerrariumLayoutGenerator.generate(seed: 42, growthPoints: 21, hydration: 70)
+        let quadrantCounts = [
+            forest.mossMounds.count { $0.xPosition < 0 && $0.zPosition < 0 },
+            forest.mossMounds.count { $0.xPosition < 0 && $0.zPosition >= 0 },
+            forest.mossMounds.count { $0.xPosition >= 0 && $0.zPosition < 0 },
+            forest.mossMounds.count { $0.xPosition >= 0 && $0.zPosition >= 0 }
+        ]
+
+        #expect(forest.mossMounds.count == 42)
+        #expect(quadrantCounts.allSatisfy { $0 >= 6 })
+        #expect(forest.mossMounds.count { $0.zPosition > 0.48 } >= 6)
     }
 
     @Test
