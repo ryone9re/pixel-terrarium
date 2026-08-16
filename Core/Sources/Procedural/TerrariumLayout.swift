@@ -20,6 +20,9 @@ public struct TerrariumLayout: Equatable, Sendable {
     }
 
     public struct FernFrond: Equatable, Sendable {
+        public let xPosition: Float
+        public let zPosition: Float
+        public let rotation: Float
         public let angle: Float
         public let height: Float
         public let bend: Float
@@ -77,8 +80,8 @@ public enum TerrariumLayoutGenerator {
         random: inout SplitMix64
     ) -> [TerrariumLayout.MossMound] {
         let baseAnchors: [(Float, Float)] = [
-            (-0.78, -0.08), (-0.48, 0.34), (-0.18, -0.34), (0.18, 0.32),
-            (0.52, -0.28), (0.79, 0.10), (0.02, 0.57)
+            (-0.64, -0.06), (-0.40, 0.28), (-0.15, -0.28), (0.15, 0.27),
+            (0.43, -0.23), (0.65, 0.08), (0.02, 0.47)
         ]
         let anchors = baseAnchors.map { xPosition, zPosition in
             (
@@ -96,8 +99,8 @@ public enum TerrariumLayoutGenerator {
             let scatter = random.range(0.02...0.20) * (index < anchors.count ? 0.25 : 1)
             let radius = random.range(0.15...0.25) * (0.90 + progress * 0.20)
             return TerrariumLayout.MossMound(
-                xPosition: clamp(anchor.0 + cos(angle) * scatter, to: -1.02...1.02),
-                zPosition: clamp(anchor.1 + sin(angle) * scatter * 0.72, to: -0.70...0.70),
+                xPosition: clamp(anchor.0 + cos(angle) * scatter, to: -0.84...0.84),
+                zPosition: clamp(anchor.1 + sin(angle) * scatter * 0.72, to: -0.58...0.58),
                 radius: radius,
                 height: random.range(0.15...0.33) * (0.82 + progress * 0.32),
                 tone: Int(random.next() % 3),
@@ -107,7 +110,7 @@ public enum TerrariumLayoutGenerator {
     }
 
     private static func makeStones(random: inout SplitMix64) -> [TerrariumLayout.Stone] {
-        let stonePositions: [(Float, Float)] = [(-0.48, 0.06), (0.72, -0.18), (0.47, 0.52), (-0.84, 0.48)]
+        let stonePositions: [(Float, Float)] = [(-0.40, 0.04), (0.59, -0.15), (0.39, 0.43), (-0.69, 0.39)]
         return stonePositions.enumerated().map { index, position in
             TerrariumLayout.Stone(
                 xPosition: position.0 + random.range(-0.10...0.10),
@@ -125,13 +128,29 @@ public enum TerrariumLayoutGenerator {
         random: inout SplitMix64
     ) -> [TerrariumLayout.FernFrond] {
         let frondCount = stage == .seed ? 0 : min(6, stage.rawValue + 1)
+        let crownAnchors: [(Float, Float)] = [
+            (-0.52, 0.27),
+            (0.50, 0.13),
+            (-0.10, -0.34)
+        ]
+        let crownRotations: [Float] = [0.35, -0.62, 2.35]
+        let crownHeightScales: [Float] = [0.82, 0.72, 0.62]
         return (0..<frondCount).map { index in
-            let fan = frondCount == 1 ? 0 : Float(index) / Float(frondCount - 1) - 0.5
+            let fan: Float = index.isMultiple(of: 2) ? -0.42 : 0.42
+            let outerFrondScale = 1 - abs(fan) * 0.12
+            let crownIndex = min(crownAnchors.count - 1, index / 2)
+            let crown = crownAnchors[crownIndex]
             return TerrariumLayout.FernFrond(
-                angle: fan * 1.75 + random.range(-0.14...0.14),
-                height: (0.53 + Float(stage.rawValue) * 0.16) * random.range(0.86...1.14),
-                bend: fan * random.range(0.24...0.48),
-                leafletPairs: min(9, 3 + stage.rawValue + index % 2),
+                xPosition: crown.0 + random.range(-0.045...0.045),
+                zPosition: crown.1 + random.range(-0.035...0.035),
+                rotation: crownRotations[crownIndex] + random.range(-0.16...0.16),
+                angle: fan * 1.35 + random.range(-0.20...0.20),
+                height: (0.53 + Float(stage.rawValue) * 0.16)
+                    * random.range(0.86...1.14)
+                    * outerFrondScale
+                    * crownHeightScales[crownIndex],
+                bend: fan * random.range(0.55...0.82),
+                leafletPairs: min(15, 6 + stage.rawValue + index % 4),
                 tone: index % 3
             )
         }

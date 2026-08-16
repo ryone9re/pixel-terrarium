@@ -45,6 +45,18 @@ struct TerrariumLayoutTests {
 
         #expect(mature.mossMounds.count <= 22)
         #expect(mature.fernFronds.count <= 6)
+        #expect(mature.fernFronds.allSatisfy { (5...15).contains($0.leafletPairs) })
+        #expect(mature.fernFronds.contains { $0.leafletPairs >= 13 })
+    }
+
+    @Test
+    func matureFernSpreadsAcrossMultipleCrowns() {
+        let mature = TerrariumLayoutGenerator.generate(seed: 42, growthPoints: 21, hydration: 70)
+        let xPositions = mature.fernFronds.map(\.xPosition)
+        let zPositions = mature.fernFronds.map(\.zPosition)
+
+        #expect((xPositions.max() ?? 0) - (xPositions.min() ?? 0) > 0.55)
+        #expect((zPositions.max() ?? 0) - (zPositions.min() ?? 0) > 0.35)
     }
 
     @Test

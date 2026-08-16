@@ -22,24 +22,29 @@ private func resolvedPeriod(at date: Date, snapshot: TerrariumWidgetSnapshot) ->
 }
 
 struct TerrariumTimelineProvider: TimelineProvider {
+    private struct LoadedContent {
+        let snapshot: TerrariumWidgetSnapshot
+        let artworkByPeriod: [DayPeriod: Data]
+    }
+
     func placeholder(in context: Context) -> TerrariumTimelineEntry {
         TerrariumTimelineEntry(date: .now, snapshot: .placeholder(), artworkData: nil)
     }
 
     func getSnapshot(in context: Context, completion: @escaping (TerrariumTimelineEntry) -> Void) {
         let now = Date.now
-        let snapshot = loadSnapshot()
+        let content = loadContent()
         completion(TerrariumTimelineEntry(
             date: now,
-            snapshot: snapshot,
-            artworkData: loadArtworkData(at: now, snapshot: snapshot)
+            snapshot: content.snapshot,
+            artworkData: content.artworkByPeriod[period(at: now, snapshot: content.snapshot)]
         ))
     }
 
     func getTimeline(in context: Context, completion: @escaping (Timeline<TerrariumTimelineEntry>) -> Void) {
         let now = Date.now
-        let snapshot = loadSnapshot()
-        let artworkByPeriod = loadArtworkByPeriod()
+        let content = loadContent()
+        let snapshot = content.snapshot
         let periodBoundaries = WidgetTimelinePlanner.timelineBoundaries(
             after: now,
             timeZoneIdentifier: snapshot.timeZoneIdentifier
@@ -55,7 +60,7 @@ struct TerrariumTimelineProvider: TimelineProvider {
             TerrariumTimelineEntry(
                 date: date,
                 snapshot: snapshot,
-                artworkData: artworkByPeriod[period(at: date, snapshot: snapshot)]
+                artworkData: content.artworkByPeriod[period(at: date, snapshot: snapshot)]
             )
         }
         let nextReload = entries.last?.date.addingTimeInterval(3_600)
@@ -63,33 +68,41 @@ struct TerrariumTimelineProvider: TimelineProvider {
         completion(Timeline(entries: entries, policy: .after(nextReload)))
     }
 
-    private func loadSnapshot() -> TerrariumWidgetSnapshot {
+    private func loadContent() -> LoadedContent {
         guard let containerURL = FileManager.default.containerURL(
             forSecurityApplicationGroupIdentifier: TerrariumCore.appGroupIdentifier
         ) else {
-            return .placeholder()
+            return LoadedContent(snapshot: .placeholder(), artworkByPeriod: [:])
         }
-        return (try? WidgetSnapshotStore(containerURL: containerURL).read()) ?? .placeholder()
-    }
+        if let publication = try? WidgetPublicationStore(containerURL: containerURL).read() {
+            let artworkByPeriod: [DayPeriod: Data] = Dictionary(
+                uniqueKeysWithValues: DayPeriod.allCases.compactMap { period in
+                    guard let data = try? WidgetArtworkStore(
+                        containerURL: containerURL,
+                        generationID: publication.generationID,
+                        period: period
+                    ).read() else { return nil }
+                    return (period, data)
+                }
+            )
+            return LoadedContent(
+                snapshot: publication.snapshot,
+                artworkByPeriod: artworkByPeriod
+            )
+        }
 
-    private func loadArtworkData(
-        at date: Date,
-        snapshot: TerrariumWidgetSnapshot
-    ) -> Data? {
-        loadArtworkByPeriod()[period(at: date, snapshot: snapshot)]
-    }
-
-    private func loadArtworkByPeriod() -> [DayPeriod: Data] {
-        guard let containerURL = FileManager.default.containerURL(
-            forSecurityApplicationGroupIdentifier: TerrariumCore.appGroupIdentifier
-        ) else { return [:] }
-        return Dictionary(uniqueKeysWithValues: DayPeriod.allCases.compactMap { period in
-            guard let data = try? WidgetArtworkStore(
-                containerURL: containerURL,
-                period: period
-            ).read() else { return nil }
-            return (period, data)
-        })
+        // 旧形式から更新した直後は、新しい一式が完成するまで最後の有効画像を使う。
+        let snapshot = (try? WidgetSnapshotStore(containerURL: containerURL).read()) ?? .placeholder()
+        let legacyArtwork: [DayPeriod: Data] = Dictionary(
+            uniqueKeysWithValues: DayPeriod.allCases.compactMap { period in
+                guard let data = try? WidgetArtworkStore(
+                    containerURL: containerURL,
+                    period: period
+                ).read() else { return nil }
+                return (period, data)
+            }
+        )
+        return LoadedContent(snapshot: snapshot, artworkByPeriod: legacyArtwork)
     }
 
     private func period(at date: Date, snapshot: TerrariumWidgetSnapshot) -> DayPeriod {

@@ -127,33 +127,55 @@ enum TerrariumEntityFactory {
     static func makeHardware() -> Entity {
         let root = Entity()
         let darkMetal = TerrariumMaterialFactory.darkMetal()
-        let bronze = TerrariumMaterialFactory.bronze()
-
-        let base = ModelEntity(
-            mesh: .generateCylinder(height: 0.20, radius: 1.46),
-            materials: [darkMetal]
-        )
-        base.position.y = -1.03
-        root.addChild(base)
-
-        let baseRim = ModelEntity(
-            mesh: .generateCylinder(height: 0.055, radius: 1.50),
-            materials: [bronze]
-        )
-        baseRim.position.y = -0.91
-        root.addChild(baseRim)
+        root.addChild(makeCompactBase())
 
         let collar = ModelEntity(
             mesh: .generateCylinder(height: 0.15, radius: 0.40),
             materials: [darkMetal]
         )
-        collar.position.y = 2.68
+        collar.position.y = 2.16
         root.addChild(collar)
 
         let knob = ModelEntity(mesh: .generateSphere(radius: 0.20), materials: [darkMetal])
         knob.scale.y = 0.72
-        knob.position.y = 2.91
+        knob.position.y = 2.39
         root.addChild(knob)
+        return root
+    }
+
+    static func makeCompactBase() -> Entity {
+        let root = Entity()
+        root.name = "CompactBase"
+        let blackenedMetal = TerrariumMaterialFactory.blackenedBaseMetal()
+        let bronze = TerrariumMaterialFactory.bronze()
+
+        let body = ModelEntity(
+            mesh: .generateCylinder(height: 0.17, radius: 1.14),
+            materials: [blackenedMetal]
+        )
+        body.position.y = -1.04
+        root.addChild(body)
+
+        let topSupport = ModelEntity(
+            mesh: .generateCylinder(height: 0.065, radius: 1.05),
+            materials: [blackenedMetal]
+        )
+        topSupport.position.y = -0.91
+        root.addChild(topSupport)
+
+        let upperTrim = ModelEntity(
+            mesh: .generateCylinder(height: 0.022, radius: 1.09),
+            materials: [bronze]
+        )
+        upperTrim.position.y = -0.885
+        root.addChild(upperTrim)
+
+        let lowerTrim = ModelEntity(
+            mesh: .generateCylinder(height: 0.026, radius: 1.17),
+            materials: [bronze]
+        )
+        lowerTrim.position.y = -1.135
+        root.addChild(lowerTrim)
         return root
     }
 
@@ -172,11 +194,11 @@ enum TerrariumEntityFactory {
                 materials: [TerrariumMaterialFactory.droplet(glint: droplet.glint)]
             )
             entity.scale = SIMD3<Float>(0.72, 1.34 + Float(index % 3) * 0.08, 0.26)
-            entity.position = SIMD3<Float>(
-                droplet.xRatio * 1.10,
-                -0.36 + droplet.yRatio * 2.38,
-                1.285 - abs(droplet.xRatio) * 0.22
-            )
+            let yPosition = -0.45 + droplet.yRatio * 2.42
+            let glassRadius = GlassClocheFactory.glassRadius(at: yPosition)
+            let xPosition = droplet.xRatio * glassRadius * 0.78
+            let frontDepth = sqrt(max(0.01, glassRadius * glassRadius - xPosition * xPosition))
+            entity.position = SIMD3<Float>(xPosition, yPosition, frontDepth * 0.965)
             root.addChild(entity)
         }
         return root
@@ -190,21 +212,21 @@ extension TerrariumEntityFactory {
         let hydrated = hydration >= 40
 
         let drainage = ModelEntity(
-            mesh: .generateCylinder(height: 0.14, radius: 1.24),
+            mesh: .generateCylinder(height: 0.14, radius: 0.90),
             materials: [TerrariumMaterialFactory.gravel()]
         )
         drainage.position.y = -0.90
         root.addChild(drainage)
 
         let charcoal = ModelEntity(
-            mesh: .generateCylinder(height: 0.075, radius: 1.22),
+            mesh: .generateCylinder(height: 0.075, radius: 0.89),
             materials: [TerrariumMaterialFactory.charcoal()]
         )
         charcoal.position.y = -0.795
         root.addChild(charcoal)
 
         let soil = ModelEntity(
-            mesh: .generateCylinder(height: 0.11, radius: 1.17),
+            mesh: .generateCylinder(height: 0.11, radius: 0.87),
             materials: [TerrariumMaterialFactory.soil(hydrated: hydrated)]
         )
         soil.position.y = -0.675
@@ -311,16 +333,19 @@ extension TerrariumEntityFactory {
                     color: leafColors[frond.tone], hydrated: hydrated
                 )]
             )
-            let anchorX: Float = -0.10 + Float(index % 2) * 0.025
-            let anchorZ: Float = 0.25 + Float(index % 3) * 0.012
-            entity.scale = SIMD3<Float>(1.20, frond.height, 1.18 + abs(frond.bend) * 0.35)
+            let anchorX = frond.xPosition
+            let anchorZ = frond.zPosition
+            entity.scale = SIMD3<Float>(1.13, frond.height, 1.14 + abs(frond.bend) * 0.52)
             entity.position = SIMD3<Float>(
                 anchorX,
                 surfaceY(xPosition: anchorX, zPosition: anchorZ),
                 anchorZ
             )
-            let radialRotation = simd_quatf(angle: frond.angle, axis: SIMD3<Float>(0, 1, 0))
-            let fanTilt = simd_quatf(angle: frond.angle * 0.58, axis: SIMD3<Float>(0, 0, 1))
+            let radialRotation = simd_quatf(angle: frond.rotation, axis: SIMD3<Float>(0, 1, 0))
+            let fanTilt = simd_quatf(
+                angle: frond.angle * 0.70 + frond.bend * 0.58,
+                axis: SIMD3<Float>(0, 0, 1)
+            )
             entity.orientation = radialRotation * fanTilt
             root.addChild(entity)
         }
@@ -330,7 +355,7 @@ extension TerrariumEntityFactory {
                 mesh: .generateSphere(radius: 0.08),
                 materials: [SimpleMaterial(color: .brown, roughness: 1, isMetallic: false)]
             )
-            seed.position = SIMD3<Float>(-0.10, surfaceY(xPosition: -0.10, zPosition: 0.25), 0.25)
+            seed.position = SIMD3<Float>(-0.10, surfaceY(xPosition: -0.10, zPosition: 0.12), 0.12)
             root.addChild(seed)
         }
     }

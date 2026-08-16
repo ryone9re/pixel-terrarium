@@ -8,6 +8,7 @@ enum TerrariumPersistence {
     private struct ArtworkRequest {
         let snapshot: TerrariumWidgetSnapshot
         let containerURL: URL
+        let generationID: UUID
     }
 
     private static var artworkTask: Task<Void, Never>?
@@ -24,7 +25,7 @@ enum TerrariumPersistence {
         let record = TerrariumRecord(state: state)
         context.insert(record)
         try context.save()
-        writeSnapshot(for: record, eventRecords: [], now: now)
+        scheduleSnapshotPublication(for: record, eventRecords: [], now: now)
         return record
     }
 
@@ -36,13 +37,12 @@ enum TerrariumPersistence {
     ) throws {
         let state = GrowthEngine.resolve(record.state, at: now)
         guard state != record.state else {
-            writeSnapshot(for: record, eventRecords: eventRecords, now: now)
+            scheduleSnapshotPublication(for: record, eventRecords: eventRecords, now: now)
             return
         }
         record.apply(state)
         try context.save()
-        writeSnapshot(for: record, eventRecords: eventRecords, now: now)
-        WidgetCenter.shared.reloadTimelines(ofKind: TerrariumCore.widgetKind)
+        scheduleSnapshotPublication(for: record, eventRecords: eventRecords, now: now)
     }
 
     static func water(
@@ -61,8 +61,11 @@ enum TerrariumPersistence {
             )
             context.insert(newRecord)
             try context.save()
-            writeSnapshot(for: record, eventRecords: eventRecords + [newRecord], now: now)
-            WidgetCenter.shared.reloadTimelines(ofKind: TerrariumCore.widgetKind)
+            scheduleSnapshotPublication(
+                for: record,
+                eventRecords: eventRecords + [newRecord],
+                now: now
+            )
             return true
         case let .alreadyWatered(state):
             record.apply(state)
@@ -70,10 +73,17 @@ enum TerrariumPersistence {
         }
     }
 
-    static func rename(_ record: TerrariumRecord, to name: String, in context: ModelContext) throws {
+    static func rename(
+        _ record: TerrariumRecord,
+        to name: String,
+        eventRecords: [WateringEventRecord],
+        now: Date,
+        in context: ModelContext
+    ) throws {
         let resolvedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
         record.name = resolvedName.isEmpty ? "わたしのテラリウム" : resolvedName
         try context.save()
+        scheduleSnapshotPublication(for: record, eventRecords: eventRecords, now: now)
     }
 
     static func deleteAll(
@@ -90,6 +100,7 @@ enum TerrariumPersistence {
             try? FileManager.default.removeItem(
                 at: WidgetSnapshotStore(containerURL: containerURL).fileURL
             )
+            try? WidgetPublicationStore(containerURL: containerURL).remove()
             WidgetArtworkStore.removeAll(containerURL: containerURL)
         }
         artworkTask?.cancel()
@@ -107,10 +118,7 @@ enum TerrariumPersistence {
     static func resumeArtworkRendering() {
         isArtworkRenderingSuspended = false
         guard let request = pendingArtworkRequest else { return }
-        scheduleArtworkRender(
-            for: request.snapshot,
-            containerURL: request.containerURL
-        )
+        startArtworkRender(request)
     }
 
     #if DEBUG
@@ -119,7 +127,7 @@ enum TerrariumPersistence {
     }
     #endif
 
-    private static func writeSnapshot(
+    private static func scheduleSnapshotPublication(
         for record: TerrariumRecord,
         eventRecords: [WateringEventRecord],
         now: Date
@@ -146,16 +154,17 @@ enum TerrariumPersistence {
             ),
             lastWateredAt: relevantEvents.first?.wateredAt
         )
-        try? WidgetSnapshotStore(containerURL: containerURL).write(snapshot)
-        scheduleArtworkRender(for: snapshot, containerURL: containerURL)
+        let request = ArtworkRequest(
+            snapshot: snapshot,
+            containerURL: containerURL,
+            generationID: UUID()
+        )
+        pendingArtworkRequest = request
+        guard !isArtworkRenderingSuspended else { return }
+        startArtworkRender(request)
     }
 
-    private static func scheduleArtworkRender(
-        for snapshot: TerrariumWidgetSnapshot,
-        containerURL: URL
-    ) {
-        pendingArtworkRequest = ArtworkRequest(snapshot: snapshot, containerURL: containerURL)
-        guard !isArtworkRenderingSuspended else { return }
+    private static func startArtworkRender(_ request: ArtworkRequest) {
         artworkTask?.cancel()
         artworkTask = Task { @MainActor in
             do {
@@ -166,25 +175,43 @@ enum TerrariumPersistence {
             for period in DayPeriod.allCases {
                 guard !Task.isCancelled else { return }
                 guard let artwork = await TerrariumWidgetArtworkRenderer.render(
-                    snapshot: snapshot,
+                    snapshot: request.snapshot,
                     period: period
-                ), isCurrent(snapshot, in: containerURL) else { return }
-                try? WidgetArtworkStore(containerURL: containerURL, period: period).write(artwork)
+                ), isCurrent(request) else { return }
+                do {
+                    try WidgetArtworkStore(
+                        containerURL: request.containerURL,
+                        generationID: request.generationID,
+                        period: period
+                    ).write(artwork)
+                } catch {
+                    return
+                }
                 await Task.yield()
             }
-            if pendingArtworkRequest?.snapshot == snapshot {
-                pendingArtworkRequest = nil
+            guard isCurrent(request) else { return }
+            let publicationStore = WidgetPublicationStore(containerURL: request.containerURL)
+            let previousGenerationID = try? publicationStore.read().generationID
+            let publication = TerrariumWidgetPublication(
+                generationID: request.generationID,
+                generatedAt: .now,
+                snapshot: request.snapshot
+            )
+            do {
+                try publicationStore.write(publication)
+            } catch {
+                return
             }
+            pendingArtworkRequest = nil
             WidgetCenter.shared.reloadTimelines(ofKind: TerrariumCore.widgetKind)
+            WidgetArtworkStore.removeAll(
+                containerURL: request.containerURL,
+                keeping: Set([previousGenerationID, request.generationID].compactMap { $0 })
+            )
         }
     }
 
-    private static func isCurrent(_ snapshot: TerrariumWidgetSnapshot, in containerURL: URL) -> Bool {
-        guard !Task.isCancelled,
-              let latest = try? WidgetSnapshotStore(containerURL: containerURL).read() else { return false }
-        return latest.terrariumID == snapshot.terrariumID
-            && latest.seed == snapshot.seed
-            && latest.growthPoints == snapshot.growthPoints
-            && latest.hydration == snapshot.hydration
+    private static func isCurrent(_ request: ArtworkRequest) -> Bool {
+        !Task.isCancelled && pendingArtworkRequest?.generationID == request.generationID
     }
 }

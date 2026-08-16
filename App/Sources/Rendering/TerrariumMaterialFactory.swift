@@ -131,40 +131,14 @@ enum TerrariumMaterialFactory {
     static func glass() -> PhysicallyBasedMaterial {
         var glass = material(
             color: UIColor(red: 0.72, green: 0.94, blue: 0.98, alpha: 1),
-            roughness: 0.05,
-            specular: 1,
-            clearcoat: 1,
-            clearcoatRoughness: 0.02
+            roughness: 0.32,
+            specular: 0.06,
+            clearcoat: 0,
+            clearcoatRoughness: 0.50
         )
-        glass.blending = .transparent(opacity: 0.062)
-        glass.faceCulling = .none
+        glass.blending = .transparent(opacity: 0.018)
+        glass.faceCulling = .back
         return glass
-    }
-
-    static func glassHighlight() -> PhysicallyBasedMaterial {
-        var highlight = material(
-            color: UIColor(red: 0.90, green: 0.98, blue: 1, alpha: 1),
-            roughness: 0.03,
-            specular: 1,
-            clearcoat: 1,
-            clearcoatRoughness: 0.01,
-            emissiveColor: UIColor(red: 0.45, green: 0.82, blue: 1, alpha: 1),
-            emissiveIntensity: 0.012
-        )
-        highlight.blending = .transparent(opacity: 0.10)
-        highlight.faceCulling = .none
-        return highlight
-    }
-
-    static func condensationFog() -> PhysicallyBasedMaterial {
-        var fog = material(
-            color: UIColor(red: 0.72, green: 0.90, blue: 0.88, alpha: 1),
-            roughness: 0.96,
-            specular: 0.05
-        )
-        fog.blending = .transparent(opacity: 0.018)
-        fog.faceCulling = .none
-        return fog
     }
 
     static func droplet(glint: Float) -> PhysicallyBasedMaterial {
@@ -189,6 +163,17 @@ enum TerrariumMaterialFactory {
             specular: 0.58,
             clearcoat: 0.20,
             clearcoatRoughness: 0.24
+        )
+    }
+
+    static func blackenedBaseMetal() -> PhysicallyBasedMaterial {
+        material(
+            color: UIColor(red: 0.018, green: 0.024, blue: 0.025, alpha: 1),
+            roughness: 0.42,
+            metallic: 0.86,
+            specular: 0.54,
+            clearcoat: 0.12,
+            clearcoatRoughness: 0.30
         )
     }
 

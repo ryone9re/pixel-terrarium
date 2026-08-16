@@ -14,7 +14,13 @@ struct TerrariumWidgetArtworkView: View {
                     .resizable()
                     .scaledToFit()
             } else {
-                ProceduralTerrariumSnapshotView(snapshot: snapshot)
+                VStack(spacing: 5) {
+                    Image(systemName: "leaf.fill")
+                        .font(.title2)
+                    Text("テラリウムを準備中")
+                        .font(.caption2.weight(.medium))
+                }
+                .foregroundStyle(.secondary)
             }
         }
         .aspectRatio(0.82, contentMode: .fit)

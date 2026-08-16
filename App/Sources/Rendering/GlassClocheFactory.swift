@@ -2,10 +2,17 @@ import RealityKit
 
 @MainActor
 enum GlassClocheFactory {
+    private struct ProfileRing {
+        let yPosition: Float
+        let radius: Float
+    }
+
     private struct VertexBuffers {
         var positions: [SIMD3<Float>] = []
         var normals: [SIMD3<Float>] = []
     }
+
+    private static let orbProfile = makeOrbProfile()
 
     static func makeGlassCloche(hydrated: Bool) -> Entity {
         let root = Entity()
@@ -13,86 +20,46 @@ enum GlassClocheFactory {
         let glass = TerrariumMaterialFactory.glass()
 
         let cloche = ModelEntity(
-            mesh: makeClocheMesh(radius: 1.34, wallBottom: -0.90, wallTop: 1.84, domeHeight: 0.78),
+            mesh: makeOrbMesh(),
             materials: [glass]
         )
         root.addChild(cloche)
 
-        let longReflection = ModelEntity(
-            mesh: .generateBox(size: SIMD3<Float>(0.026, 1.52, 0.018), cornerRadius: 0.009),
-            materials: [TerrariumMaterialFactory.glassHighlight()]
-        )
-        longReflection.position = SIMD3<Float>(-0.93, 0.40, 0.91)
-        longReflection.orientation = simd_quatf(angle: -0.07, axis: SIMD3<Float>(0, 0, 1))
-        root.addChild(longReflection)
-
-        let shortReflection = ModelEntity(
-            mesh: .generateBox(size: SIMD3<Float>(0.018, 0.58, 0.014), cornerRadius: 0.007),
-            materials: [TerrariumMaterialFactory.glassHighlight()]
-        )
-        shortReflection.position = SIMD3<Float>(0.98, 0.92, 0.82)
-        shortReflection.orientation = simd_quatf(angle: 0.05, axis: SIMD3<Float>(0, 0, 1))
-        root.addChild(shortReflection)
-
-        if hydrated {
-            addCondensation(to: root)
-        }
         return root
     }
 
-    private static func addCondensation(to root: Entity) {
-        let material = TerrariumMaterialFactory.condensationFog()
-        let patches: [(SIMD3<Float>, SIMD3<Float>)] = [
-            (SIMD3<Float>(-0.53, 1.25, 1.14), SIMD3<Float>(0.34, 0.52, 0.010)),
-            (SIMD3<Float>(0.66, 1.48, 1.08), SIMD3<Float>(0.25, 0.34, 0.009)),
-            (SIMD3<Float>(0.93, 0.18, 0.84), SIMD3<Float>(0.16, 0.42, 0.008))
-        ]
-        for patch in patches {
-            let fog = ModelEntity(
-                mesh: .generateSphere(radius: 1),
-                materials: [material]
-            )
-            fog.position = patch.0
-            fog.scale = patch.1
-            root.addChild(fog)
+    static func glassRadius(at yPosition: Float) -> Float {
+        guard let first = orbProfile.first, let last = orbProfile.last else { return 1 }
+        if yPosition <= first.yPosition { return first.radius }
+        if yPosition >= last.yPosition { return last.radius }
+        for index in 0..<(orbProfile.count - 1) {
+            let lower = orbProfile[index]
+            let upper = orbProfile[index + 1]
+            guard yPosition <= upper.yPosition else { continue }
+            let progress = (yPosition - lower.yPosition) / (upper.yPosition - lower.yPosition)
+            return lower.radius + (upper.radius - lower.radius) * progress
         }
+        return last.radius
     }
 
-    private static func makeClocheMesh(
-        radius: Float,
-        wallBottom: Float,
-        wallTop: Float,
-        domeHeight: Float
-    ) -> MeshResource {
-        let segments = 48
-        let domeRings = 12
+    private static func makeOrbMesh() -> MeshResource {
+        let segments = 64
         var buffers = VertexBuffers()
         var indices: [UInt32] = []
-        appendRing(
-            radius: radius,
-            yPosition: wallBottom,
-            segments: segments,
-            normal: SIMD2<Float>(1, 0),
-            buffers: &buffers
-        )
-        appendRing(
-            radius: radius,
-            yPosition: wallTop,
-            segments: segments,
-            normal: SIMD2<Float>(1, 0),
-            buffers: &buffers
-        )
-        for ring in 1...domeRings {
-            let latitude = .pi / 2 * (1 - Float(ring) / Float(domeRings))
+        for index in orbProfile.indices {
+            let previous = orbProfile[max(0, index - 1)]
+            let next = orbProfile[min(orbProfile.count - 1, index + 1)]
+            let radiusChange = next.radius - previous.radius
+            let heightChange = max(0.001, next.yPosition - previous.yPosition)
             appendRing(
-                radius: sin(latitude) * radius,
-                yPosition: wallTop + cos(latitude) * domeHeight,
+                radius: orbProfile[index].radius,
+                yPosition: orbProfile[index].yPosition,
                 segments: segments,
-                normal: SIMD2<Float>(sin(latitude), cos(latitude)),
+                normal: simd_normalize(SIMD2<Float>(1, -radiusChange / heightChange)),
                 buffers: &buffers
             )
         }
-        for ring in 0..<(domeRings + 1) {
+        for ring in 0..<(orbProfile.count - 1) {
             for segment in 0..<segments {
                 let next = (segment + 1) % segments
                 let lower = UInt32(ring * segments + segment)
@@ -103,11 +70,53 @@ enum GlassClocheFactory {
             }
         }
         return makeMesh(
-            name: "GlassCloche",
+            name: "GlassOrb",
             positions: buffers.positions,
             normals: buffers.normals,
             indices: indices
         )
+    }
+
+    private static func makeOrbProfile() -> [ProfileRing] {
+        let sphereCenterY: Float = 0.29
+        let sphereRadius: Float = 1.51
+        let bodyBottom: Float = -0.91
+        let bodyTop: Float = 1.62
+        let bodyRingCount = 36
+        var profile = (0...bodyRingCount).map { index in
+            let progress = Float(index) / Float(bodyRingCount)
+            let yPosition = bodyBottom + (bodyTop - bodyBottom) * progress
+            let distanceFromCenter = yPosition - sphereCenterY
+            let radius = sqrt(max(
+                0.01,
+                sphereRadius * sphereRadius - distanceFromCenter * distanceFromCenter
+            ))
+            return ProfileRing(yPosition: yPosition, radius: radius)
+        }
+
+        let shoulderStartRadius = profile.last?.radius ?? 0.72
+        let shoulderTop: Float = 1.92
+        let neckRadius: Float = 0.39
+        let shoulderRingCount = 10
+        for index in 1...shoulderRingCount {
+            let progress = Float(index) / Float(shoulderRingCount)
+            let smoothProgress = progress * progress * (3 - 2 * progress)
+            profile.append(ProfileRing(
+                yPosition: bodyTop + (shoulderTop - bodyTop) * progress,
+                radius: shoulderStartRadius + (neckRadius - shoulderStartRadius) * smoothProgress
+            ))
+        }
+
+        let neckTop: Float = 2.10
+        let neckRingCount = 4
+        for index in 1...neckRingCount {
+            let progress = Float(index) / Float(neckRingCount)
+            profile.append(ProfileRing(
+                yPosition: shoulderTop + (neckTop - shoulderTop) * progress,
+                radius: neckRadius
+            ))
+        }
+        return profile
     }
 
     private static func appendRing(

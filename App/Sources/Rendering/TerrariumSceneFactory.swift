@@ -11,7 +11,19 @@ enum TerrariumSceneFactory {
 
         if let shell = try? await Entity(named: "terrarium_shell", in: .main) {
             shell.findEntity(named: "GlassBowl")?.isEnabled = false
+            let legacyBaseNames = ["Base", "BaseLowerRim", "BaseUpperRim"]
+                + (0..<24).map { $0 < 10 ? "BaseRib_0\($0)" : "BaseRib_\($0)" }
+            for name in legacyBaseNames {
+                shell.findEntity(named: name)?.isEnabled = false
+            }
+            for name in ["TopCollarLower", "TopCollarEdge", "TopKnob"] {
+                guard let topHardware = shell.findEntity(named: name) else { continue }
+                var position = topHardware.position
+                position.z -= 0.52
+                topHardware.position = position
+            }
             root.addChild(shell)
+            root.addChild(TerrariumEntityFactory.makeCompactBase())
         } else {
             root.addChild(TerrariumEntityFactory.makeHardware())
         }

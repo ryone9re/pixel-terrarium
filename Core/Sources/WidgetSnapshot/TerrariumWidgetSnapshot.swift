@@ -89,12 +89,87 @@ public struct WidgetSnapshotStore: Sendable {
     }
 }
 
+public struct TerrariumWidgetPublication: Codable, Equatable, Sendable {
+    public static let currentSchemaVersion = 1
+    public static let currentRendererVersion = 7
+
+    public let schemaVersion: Int
+    public let rendererVersion: Int
+    public let generationID: UUID
+    public let generatedAt: Date
+    public let snapshot: TerrariumWidgetSnapshot
+
+    public init(
+        schemaVersion: Int = currentSchemaVersion,
+        rendererVersion: Int = currentRendererVersion,
+        generationID: UUID,
+        generatedAt: Date,
+        snapshot: TerrariumWidgetSnapshot
+    ) {
+        self.schemaVersion = schemaVersion
+        self.rendererVersion = rendererVersion
+        self.generationID = generationID
+        self.generatedAt = generatedAt
+        self.snapshot = snapshot
+    }
+}
+
+public enum WidgetPublicationError: Error, Equatable {
+    case unsupportedSchemaVersion(Int)
+    case unsupportedRendererVersion(Int)
+}
+
+public struct WidgetPublicationStore: Sendable {
+    public static let fileName = "terrarium-widget-publication.json"
+    public let fileURL: URL
+
+    public init(containerURL: URL) {
+        fileURL = containerURL.appendingPathComponent(Self.fileName, isDirectory: false)
+    }
+
+    public func write(_ publication: TerrariumWidgetPublication) throws {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        try encoder.encode(publication).write(to: fileURL, options: .atomic)
+    }
+
+    public func read() throws -> TerrariumWidgetPublication {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        let publication = try decoder.decode(
+            TerrariumWidgetPublication.self,
+            from: Data(contentsOf: fileURL)
+        )
+        guard publication.schemaVersion == TerrariumWidgetPublication.currentSchemaVersion else {
+            throw WidgetPublicationError.unsupportedSchemaVersion(publication.schemaVersion)
+        }
+        guard publication.rendererVersion == TerrariumWidgetPublication.currentRendererVersion else {
+            throw WidgetPublicationError.unsupportedRendererVersion(publication.rendererVersion)
+        }
+        return publication
+    }
+
+    public func remove() throws {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return }
+        try FileManager.default.removeItem(at: fileURL)
+    }
+}
+
 public struct WidgetArtworkStore: Sendable {
+    private static let filePrefix = "terrarium-widget-artwork-"
     public let fileURL: URL
 
     public init(containerURL: URL, period: DayPeriod) {
         fileURL = containerURL.appendingPathComponent(
-            "terrarium-widget-artwork-\(period.rawValue).png",
+            "\(Self.filePrefix)\(period.rawValue).png",
+            isDirectory: false
+        )
+    }
+
+    public init(containerURL: URL, generationID: UUID, period: DayPeriod) {
+        fileURL = containerURL.appendingPathComponent(
+            "\(Self.filePrefix)\(generationID.uuidString.lowercased())-\(period.rawValue).png",
             isDirectory: false
         )
     }
@@ -112,9 +187,28 @@ public struct WidgetArtworkStore: Sendable {
         try FileManager.default.removeItem(at: fileURL)
     }
 
-    public static func removeAll(containerURL: URL) {
-        for period in DayPeriod.allCases {
-            try? WidgetArtworkStore(containerURL: containerURL, period: period).remove()
+    public static func removeAll(
+        containerURL: URL,
+        keeping generationIDs: Set<UUID> = []
+    ) {
+        let keptFileNames = Set(generationIDs.flatMap { generationID in
+            DayPeriod.allCases.map { period in
+                WidgetArtworkStore(
+                    containerURL: containerURL,
+                    generationID: generationID,
+                    period: period
+                ).fileURL.lastPathComponent
+            }
+        })
+        guard let fileURLs = try? FileManager.default.contentsOfDirectory(
+            at: containerURL,
+            includingPropertiesForKeys: nil
+        ) else { return }
+        for fileURL in fileURLs where
+            fileURL.lastPathComponent.hasPrefix(filePrefix)
+            && fileURL.pathExtension == "png"
+            && !keptFileNames.contains(fileURL.lastPathComponent) {
+            try? FileManager.default.removeItem(at: fileURL)
         }
     }
 }

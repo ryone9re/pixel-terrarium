@@ -123,7 +123,13 @@ struct SettingsView: View {
     }
 
     private func saveAndDismiss() {
-        try? TerrariumPersistence.rename(terrarium, to: name, in: modelContext)
+        try? TerrariumPersistence.rename(
+            terrarium,
+            to: name,
+            eventRecords: events,
+            now: AppClock.now,
+            in: modelContext
+        )
         dismiss()
     }
 
