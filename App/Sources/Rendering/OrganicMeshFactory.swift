@@ -243,9 +243,9 @@ enum OrganicMeshFactory {
             (xPosition / 1.03) * (xPosition / 1.03) +
                 (zPosition / 0.91) * (zPosition / 0.91)
         ))
-        let centralMound = 0.25 * pow(max(0, 1 - radial), 0.72)
-        let leftRise = 0.13 * exp(-pow(xPosition + 0.42, 2) * 3.4 - pow(zPosition - 0.24, 2) * 4.2)
-        let backRise = 0.08 * exp(-pow(xPosition - 0.34, 2) * 4.0 - pow(zPosition - 0.40, 2) * 5.0)
+        let centralMound = 0.10 * pow(max(0, 1 - radial), 0.82)
+        let leftRise = 0.05 * exp(-pow(xPosition + 0.42, 2) * 3.4 - pow(zPosition - 0.24, 2) * 4.2)
+        let backRise = 0.035 * exp(-pow(xPosition - 0.34, 2) * 4.0 - pow(zPosition - 0.40, 2) * 5.0)
         return centralMound + leftRise + backRise
     }
 }

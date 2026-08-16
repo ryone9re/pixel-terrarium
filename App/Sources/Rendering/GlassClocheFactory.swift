@@ -13,6 +13,7 @@ enum GlassClocheFactory {
     }
 
     private static let orbProfile = makeOrbProfile()
+    private static var dropletMeshCache: [Int: MeshResource] = [:]
 
     static func makeGlassCloche(hydrated: Bool) -> Entity {
         let root = Entity()
@@ -57,6 +58,68 @@ enum GlassClocheFactory {
             -radiusSlope,
             zPosition / radialLength
         ))
+    }
+
+    // swiftlint:disable:next function_body_length
+    static func condensationDropletMesh(variant: Int) -> MeshResource {
+        let key = variant % 4
+        if let cached = dropletMeshCache[key] {
+            return cached
+        }
+
+        let rings = 12
+        let segments = 20
+        let phase = Float(key) * 0.83
+        var positions: [SIMD3<Float>] = []
+        var normals: [SIMD3<Float>] = []
+        var indices: [UInt32] = []
+
+        for ring in 0...rings {
+            let progress = Float(ring) / Float(rings)
+            let latitude = -.pi / 2 + progress * .pi
+            let verticalPosition = sin(latitude)
+            let roundedRadius = max(0, cos(latitude))
+            let upperTaper = 1 - max(0, verticalPosition) * 0.18
+            let lowerBulge = 1 + max(0, -verticalPosition) * 0.07
+
+            for segment in 0..<segments {
+                let angle = Float(segment) / Float(segments) * .pi * 2
+                let irregularity = 1 + sin(angle * 3 + phase) * 0.018
+                    + cos(angle * 5 - phase) * 0.012
+                let radial = roundedRadius * upperTaper * lowerBulge * irregularity
+                let position = SIMD3<Float>(
+                    cos(angle) * radial,
+                    verticalPosition,
+                    sin(angle) * radial
+                )
+                positions.append(position)
+                normals.append(simd_normalize(SIMD3<Float>(
+                    position.x,
+                    verticalPosition * 0.92,
+                    position.z
+                )))
+            }
+        }
+
+        for ring in 0..<rings {
+            for segment in 0..<segments {
+                let next = (segment + 1) % segments
+                let lower = UInt32(ring * segments + segment)
+                let lowerNext = UInt32(ring * segments + next)
+                let upper = UInt32((ring + 1) * segments + segment)
+                let upperNext = UInt32((ring + 1) * segments + next)
+                indices += [lower, upper, lowerNext, lowerNext, upper, upperNext]
+            }
+        }
+
+        let mesh = makeMesh(
+            name: "CondensationDroplet-\(key)",
+            positions: positions,
+            normals: normals,
+            indices: indices
+        )
+        dropletMeshCache[key] = mesh
+        return mesh
     }
 
     private static func makeOrbMesh() -> MeshResource {

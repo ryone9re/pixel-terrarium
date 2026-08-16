@@ -190,12 +190,17 @@ enum TerrariumEntityFactory {
         guard hydrated else { return root }
 
         for (index, droplet) in droplets.prefix(16).enumerated() {
-            let radius = max(0.018, droplet.size * 0.72)
+            let radius = max(0.013, droplet.size * 0.62)
             let entity = ModelEntity(
-                mesh: .generateSphere(radius: radius),
+                mesh: GlassClocheFactory.condensationDropletMesh(variant: index),
                 materials: [TerrariumMaterialFactory.droplet(glint: droplet.glint)]
             )
-            entity.scale = SIMD3<Float>(0.72, 1.34 + Float(index % 3) * 0.08, 0.26)
+            entity.name = "CondensationDroplet-\(index)"
+            entity.scale = SIMD3<Float>(
+                radius * (0.70 + Float(index % 3) * 0.04),
+                radius * (1.18 + Float(index % 4) * 0.10),
+                radius * 0.20
+            )
             let yPosition = -0.45 + droplet.yRatio * 2.42
             let glassRadius = GlassClocheFactory.glassRadius(at: yPosition)
             let xPosition = droplet.xRatio * glassRadius * 0.78
@@ -206,8 +211,8 @@ enum TerrariumEntityFactory {
                 xPosition: xPosition,
                 zPosition: frontDepth
             )
-            let surfaceClearance = radius * entity.scale.z + 0.006
-            entity.position = surfacePosition + outwardNormal * surfaceClearance
+            let surfaceInset = entity.scale.z + 0.010
+            entity.position = surfacePosition - outwardNormal * surfaceInset
             let yaw = atan2(outwardNormal.x, outwardNormal.z)
             let pitch = -asin(max(-1, min(1, outwardNormal.y)))
             entity.orientation = simd_quatf(
@@ -225,38 +230,39 @@ enum TerrariumEntityFactory {
 }
 
 extension TerrariumEntityFactory {
-    private static let terrainLift: Float = 0.16
+    private static let terrainBaseY: Float = -0.27
+    private static let carpetBaseY: Float = -0.245
 
     static func makeContents(layout: TerrariumLayout, hydration: Int) -> Entity {
         let root = Entity()
         let hydrated = hydration >= 40
 
         let drainage = ModelEntity(
-            mesh: .generateCylinder(height: 0.12, radius: 0.65),
+            mesh: .generateCylinder(height: 0.12, radius: 0.72),
             materials: [TerrariumMaterialFactory.gravel()]
         )
         drainage.position.y = -0.89
         root.addChild(drainage)
 
         let charcoal = ModelEntity(
-            mesh: .generateCylinder(height: 0.12, radius: 0.68),
+            mesh: .generateCylinder(height: 0.15, radius: 0.78),
             materials: [TerrariumMaterialFactory.charcoal()]
         )
-        charcoal.position.y = -0.77
+        charcoal.position.y = -0.755
         root.addChild(charcoal)
 
         let soil = ModelEntity(
-            mesh: .generateCylinder(height: 0.20, radius: 0.74),
+            mesh: .generateCylinder(height: 0.39, radius: 0.88),
             materials: [TerrariumMaterialFactory.soil(hydrated: hydrated)]
         )
-        soil.position.y = -0.61
+        soil.position.y = -0.485
         root.addChild(soil)
 
         let sculptedSoil = ModelEntity(
             mesh: OrganicMeshFactory.terrain(),
             materials: [TerrariumMaterialFactory.soil(hydrated: hydrated)]
         )
-        sculptedSoil.position.y = -0.61 + terrainLift
+        sculptedSoil.position.y = terrainBaseY
         root.addChild(sculptedSoil)
 
         let carpet = ModelEntity(
@@ -264,7 +270,7 @@ extension TerrariumEntityFactory {
             materials: [TerrariumMaterialFactory.moss(tone: hydrated ? 2 : 1, hydrated: hydrated)]
         )
         carpet.scale = SIMD3<Float>(0.975, 1, 0.975)
-        carpet.position.y = -0.585 + terrainLift
+        carpet.position.y = carpetBaseY
         root.addChild(carpet)
 
         addMossyEarthRim(hydrated: hydrated, to: root)
@@ -282,20 +288,20 @@ extension TerrariumEntityFactory {
         let moss = (0..<3).map {
             TerrariumMaterialFactory.moss(tone: $0, hydrated: hydrated)
         }
-        let clodCount = 16
+        let clodCount = 20
         for index in 0..<clodCount {
             let angle = Float(index) / Float(clodCount) * .pi * 2
-            let radiusVariation = 0.94 + Float(index % 4) * 0.025
+            let radiusVariation = 0.96 + Float(index % 4) * 0.022
             let widthVariation = 0.94 + Float(index % 3) * 0.06
             let clod = ModelEntity(
                 mesh: OrganicMeshFactory.mossPatch(variant: index),
                 materials: [moss[index % moss.count]]
             )
-            clod.scale = SIMD3<Float>(0.22 * widthVariation, 0.32, 0.18 * widthVariation)
+            clod.scale = SIMD3<Float>(0.20 * widthVariation, 0.25, 0.17 * widthVariation)
             clod.position = SIMD3<Float>(
-                cos(angle) * 0.77 * radiusVariation,
-                -0.68 + sin(Float(index) * 1.7) * 0.025,
-                sin(angle) * 0.65 * radiusVariation
+                cos(angle) * 0.91 * radiusVariation,
+                -0.35 + sin(Float(index) * 1.7) * 0.022,
+                sin(angle) * 0.91 * radiusVariation
             )
             clod.orientation = simd_quatf(
                 angle: angle - .pi / 2,
@@ -405,6 +411,7 @@ extension TerrariumEntityFactory {
             )
             entity.orientation = radialRotation * fanTilt
             root.addChild(entity)
+            fitFernInsideGlass(entity, relativeTo: root)
         }
 
         if fronds.isEmpty {
@@ -428,7 +435,28 @@ extension TerrariumEntityFactory {
     }
 
     private static func surfaceY(xPosition: Float, zPosition: Float) -> Float {
-        -0.585 + terrainLift
-            + OrganicMeshFactory.terrainHeight(xPosition: xPosition, zPosition: zPosition)
+        carpetBaseY + OrganicMeshFactory.terrainHeight(
+            xPosition: xPosition,
+            zPosition: zPosition
+        )
+    }
+
+    private static func fitFernInsideGlass(_ entity: Entity, relativeTo root: Entity) {
+        let glassClearance: Float = 0.12
+        for _ in 0..<3 {
+            let bounds = entity.visualBounds(relativeTo: root)
+            let radialExtent = [
+                SIMD2<Float>(bounds.min.x, bounds.min.z),
+                SIMD2<Float>(bounds.min.x, bounds.max.z),
+                SIMD2<Float>(bounds.max.x, bounds.min.z),
+                SIMD2<Float>(bounds.max.x, bounds.max.z)
+            ].map(simd_length).max() ?? 0
+            let availableRadius = [bounds.min.y, bounds.center.y, bounds.max.y]
+                .map { GlassClocheFactory.glassRadius(at: $0) - glassClearance }
+                .min() ?? radialExtent
+            guard radialExtent > availableRadius, radialExtent > 0 else { return }
+            let shrink = max(0.72, availableRadius / radialExtent * 0.97)
+            entity.scale *= shrink
+        }
     }
 }

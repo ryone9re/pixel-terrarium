@@ -143,15 +143,15 @@ enum TerrariumMaterialFactory {
 
     static func droplet(glint: Float) -> PhysicallyBasedMaterial {
         var water = material(
-            color: UIColor(red: 0.78, green: 0.96, blue: 1, alpha: 1),
-            roughness: 0.02,
+            color: UIColor(red: 0.86, green: 0.97, blue: 1, alpha: 1),
+            roughness: 0.015,
             specular: 1,
             clearcoat: 1,
-            clearcoatRoughness: 0.01,
-            emissiveColor: UIColor(red: 0.24, green: 0.70, blue: 1, alpha: 1),
-            emissiveIntensity: 0.06 + glint * 0.12
+            clearcoatRoughness: 0.008,
+            emissiveColor: UIColor(red: 0.44, green: 0.78, blue: 1, alpha: 1),
+            emissiveIntensity: 0.01 + glint * 0.035
         )
-        water.blending = .transparent(opacity: .init(scale: 0.30 + glint * 0.28))
+        water.blending = .transparent(opacity: .init(scale: 0.16 + glint * 0.18))
         return water
     }
 

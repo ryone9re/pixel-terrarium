@@ -11,14 +11,14 @@ struct WaterGlintsView: View {
             ForEach(Array(droplets.prefix(8).enumerated()), id: \.offset) { index, droplet in
                 DropletGlint(isSparkle: index.isMultiple(of: 5), glint: droplet.glint)
                     .frame(
-                        width: 5 + CGFloat(droplet.size) * 110,
-                        height: 8 + CGFloat(droplet.size) * 150
+                        width: 3.2 + CGFloat(droplet.size) * 48,
+                        height: 4.6 + CGFloat(droplet.size) * 78
                     )
                     .position(
                         x: geometry.size.width * CGFloat(0.5 + droplet.xRatio * 0.31),
                         y: geometry.size.height * CGFloat(0.14 + droplet.yRatio * 0.69)
                     )
-                    .opacity(reduceMotion ? 0.48 : (shimmering == index.isMultiple(of: 2) ? 0.72 : 0.20))
+                    .opacity(reduceMotion ? 0.38 : (shimmering == index.isMultiple(of: 2) ? 0.56 : 0.18))
                     .animation(
                         reduceMotion
                             ? nil
@@ -38,32 +38,49 @@ private struct DropletGlint: View {
     let glint: Float
 
     var body: some View {
-        if isSparkle {
-            Image(systemName: "sparkle")
-                .font(.system(size: 9, weight: .light))
-                .foregroundStyle(.white.opacity(0.68))
-                .shadow(color: .cyan.opacity(0.58), radius: 4)
-        } else {
-            Capsule()
-                .fill(
-                    LinearGradient(
-                        colors: [
-                            .white.opacity(0.56 + Double(glint) * 0.14),
-                            .cyan.opacity(0.11),
-                            .white.opacity(0.05)
-                        ],
-                        startPoint: .topLeading,
-                        endPoint: .bottomTrailing
-                    )
+        CondensationLensShape()
+            .fill(
+                LinearGradient(
+                    colors: [
+                        .white.opacity(0.30 + Double(glint) * 0.12),
+                        .cyan.opacity(0.055),
+                        .white.opacity(0.015)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
                 )
-                .overlay(alignment: .topLeading) {
-                    Circle()
-                        .fill(.white.opacity(0.9))
-                        .frame(width: 2.4, height: 2.4)
-                        .padding(2)
-                }
-                .shadow(color: .cyan.opacity(0.28), radius: 3)
-        }
+            )
+            .overlay {
+                CondensationLensShape()
+                    .stroke(.white.opacity(0.22), lineWidth: 0.35)
+            }
+            .overlay(alignment: .topLeading) {
+                Capsule()
+                    .fill(.white.opacity(isSparkle ? 0.92 : 0.72))
+                    .frame(width: isSparkle ? 1.5 : 1.0, height: isSparkle ? 0.65 : 0.5)
+                    .padding(.top, 1.1)
+                    .padding(.leading, 1.0)
+                    .shadow(color: .white.opacity(isSparkle ? 0.48 : 0.18), radius: 1.1)
+            }
+            .shadow(color: .cyan.opacity(0.16), radius: 0.8)
+    }
+}
+
+private struct CondensationLensShape: Shape {
+    func path(in rect: CGRect) -> Path {
+        var path = Path()
+        path.move(to: CGPoint(x: rect.midX, y: rect.minY))
+        path.addCurve(
+            to: CGPoint(x: rect.midX, y: rect.maxY),
+            control1: CGPoint(x: rect.maxX, y: rect.minY + rect.height * 0.32),
+            control2: CGPoint(x: rect.maxX, y: rect.minY + rect.height * 0.82)
+        )
+        path.addCurve(
+            to: CGPoint(x: rect.midX, y: rect.minY),
+            control1: CGPoint(x: rect.minX, y: rect.minY + rect.height * 0.82),
+            control2: CGPoint(x: rect.minX, y: rect.minY + rect.height * 0.32)
+        )
+        return path
     }
 }
 
